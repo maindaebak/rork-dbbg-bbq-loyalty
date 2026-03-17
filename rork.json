@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "Seoul Smoke Rewards",
+      "name": "Dae Bak Bon Ga Rewards",
       "path": "expo",
       "framework": "react-native"
     }
