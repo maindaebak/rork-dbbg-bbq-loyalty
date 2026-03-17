@@ -1,0 +1,9 @@
+{
+  "apps": [
+    {
+      "name": "Seoul Smoke Rewards",
+      "path": "expo",
+      "framework": "react-native"
+    }
+  ]
+}
