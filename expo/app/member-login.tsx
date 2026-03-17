@@ -11,6 +11,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
+import { trpc } from "@/lib/trpc";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -29,7 +30,9 @@ export default function MemberLoginScreen() {
   const [phone, setPhone] = useState<string>("");
   const [code, setCode] = useState<string>("");
   const [step, setStep] = useState<LoginStep>("phone");
-  const [isSending, setIsSending] = useState<boolean>(false);
+
+  const sendSmsMutation = trpc.verification.sendSmsCode.useMutation();
+  const verifySmsMutation = trpc.verification.verifySmsCode.useMutation();
 
   const canSendCode = useMemo<boolean>(
     () => phone.replace(/\D/g, "").length === 10,
@@ -38,66 +41,84 @@ export default function MemberLoginScreen() {
 
   const canVerify = useMemo<boolean>(() => code.trim().length === 6, [code]);
 
-  const handleSendCode = useCallback(() => {
+  const handleSendCode = useCallback(async () => {
     console.log("[Login] Requesting verification code for", phone);
     if (!canSendCode) {
       Alert.alert("Phone required", "Enter your 10-digit phone number to receive a verification code.");
       return;
     }
 
-    setIsSending(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    setTimeout(() => {
-      console.log("[Login] SMS verification sent");
-      setIsSending(false);
+    try {
+      await sendSmsMutation.mutateAsync({ phone });
+      console.log("[Login] SMS verification sent successfully");
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
-    }, 900);
-  }, [canSendCode, phone]);
+    } catch (error) {
+      console.log("[Login] SMS send error:", error);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Failed to send code",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
+  }, [canSendCode, phone, sendSmsMutation]);
 
-  const handleVerify = useCallback(() => {
+  const handleVerify = useCallback(async () => {
     console.log("[Login] Verifying code", code);
     if (!canVerify) {
       Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
       return;
     }
-    if (code !== "246810") {
+
+    try {
+      const result = await verifySmsMutation.mutateAsync({ phone, code });
+
+      if (!result.success) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Verification failed", "The code you entered is incorrect. Please try again.");
+        return;
+      }
+
+      setStep("verified");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const existingMember = findMemberByPhone(phone);
+      const member: MemberProfile = existingMember
+        ? {
+            id: existingMember.id,
+            fullName: existingMember.fullName,
+            phone: existingMember.phone,
+            email: existingMember.email,
+            birthdate: existingMember.birthdate,
+            birthYear: existingMember.birthYear,
+            createdAt: existingMember.createdAt,
+            emailVerified: existingMember.emailVerified ?? false,
+          }
+        : {
+            id: `member-${Date.now()}`,
+            fullName: "Returning Member",
+            phone,
+            email: "",
+            birthdate: "",
+            birthYear: "",
+            createdAt: new Date().toISOString(),
+            emailVerified: false,
+          };
+
+      console.log("[Login] Member logged in with phone", phone);
+      login(member);
+      router.replace("/member-dashboard");
+    } catch (error) {
+      console.log("[Login] Verification error:", error);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Code not recognized", "Use demo code 246810 to complete this prototype.");
-      return;
+      Alert.alert(
+        "Verification failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
     }
-
-    setStep("verified");
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    const existingMember = findMemberByPhone(phone);
-    const member: MemberProfile = existingMember
-      ? {
-          id: existingMember.id,
-          fullName: existingMember.fullName,
-          phone: existingMember.phone,
-          email: existingMember.email,
-          birthdate: existingMember.birthdate,
-          birthYear: existingMember.birthYear,
-          createdAt: existingMember.createdAt,
-          emailVerified: existingMember.emailVerified ?? false,
-        }
-      : {
-          id: `member-${Date.now()}`,
-          fullName: "Returning Member",
-          phone,
-          email: "",
-          birthdate: "",
-          birthYear: "",
-          createdAt: new Date().toISOString(),
-          emailVerified: false,
-        };
-
-    console.log("[Login] Member logged in with phone", phone);
-    login(member);
-    router.replace("/member-dashboard");
-  }, [canVerify, code, findMemberByPhone, login, phone]);
+  }, [canVerify, code, findMemberByPhone, login, phone, verifySmsMutation]);
 
   return (
     <>
@@ -133,7 +154,13 @@ export default function MemberLoginScreen() {
           />
           <ActionButton
             icon={MessageSquareMore}
-            label={isSending ? "Sending code..." : "Send verification code"}
+            label={
+              sendSmsMutation.isPending
+                ? "Sending code..."
+                : step === "code-sent"
+                  ? "Resend verification code"
+                  : "Send verification code"
+            }
             onPress={handleSendCode}
             testID="login-send-code-button"
             variant="secondary"
@@ -153,18 +180,17 @@ export default function MemberLoginScreen() {
                 console.log("[Login] Updating code");
                 setCode(value.replace(/\D/g, "").slice(0, 6));
               }}
-              placeholder="246810"
+              placeholder="Enter 6-digit code"
               testID="login-code-input"
               value={code}
             />
             <ActionButton
               icon={CheckCircle2}
-              label="Verify & log in"
+              label={verifySmsMutation.isPending ? "Verifying..." : "Verify & log in"}
               onPress={handleVerify}
               testID="login-verify-button"
               variant="primary"
             />
-            <Text style={styles.helperText}>Demo verification code: 246810</Text>
           </Panel>
         )}
 
@@ -190,11 +216,6 @@ export default function MemberLoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  helperText: {
-    color: "#C8AA94",
-    fontSize: 13,
-    lineHeight: 18,
-  },
   statusPill: {
     alignItems: "center",
     backgroundColor: "rgba(255, 247, 237, 0.06)",

@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, FileText, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
+import { CheckCircle2, FileText, Mail, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -11,6 +11,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
+import { trpc } from "@/lib/trpc";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -22,10 +23,12 @@ interface SignupFormState {
   birthDay: string;
   birthYear: string;
   code: string;
+  emailCode: string;
   agreedToTerms: boolean;
 }
 
 type VerificationStatus = "idle" | "sending" | "sent" | "verified";
+type EmailVerificationStatus = "idle" | "sending" | "sent" | "verifying" | "verified";
 
 const INITIAL_FORM: SignupFormState = {
   fullName: "",
@@ -35,6 +38,7 @@ const INITIAL_FORM: SignupFormState = {
   birthDay: "",
   birthYear: "",
   code: "",
+  emailCode: "",
   agreedToTerms: false,
 };
 
@@ -69,6 +73,12 @@ export default function MemberSignupScreen() {
   const { registerMember } = useMembersStore();
   const [form, setForm] = useState<SignupFormState>(INITIAL_FORM);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("idle");
+  const [emailStatus, setEmailStatus] = useState<EmailVerificationStatus>("idle");
+
+  const sendSmsMutation = trpc.verification.sendSmsCode.useMutation();
+  const verifySmssmutation = trpc.verification.verifySmsCode.useMutation();
+  const sendEmailMutation = trpc.email.sendVerification.useMutation();
+  const verifyEmailMutation = trpc.email.verifyEmail.useMutation();
 
   const updateField = useCallback((key: keyof SignupFormState, value: string) => {
     console.log("[Signup] Updating field", key);
@@ -92,7 +102,7 @@ export default function MemberSignupScreen() {
 
   const canVerify = useMemo<boolean>(() => form.code.trim().length === 6, [form.code]);
 
-  const handleSendCode = useCallback(() => {
+  const handleSendCode = useCallback(async () => {
     console.log("[Signup] Sending verification code to", form.phone);
     if (!form.agreedToTerms) {
       Alert.alert(
@@ -108,54 +118,137 @@ export default function MemberSignupScreen() {
       );
       return;
     }
+
     setVerificationStatus("sending");
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => {
-      console.log("[Signup] SMS verification sent");
+
+    try {
+      await sendSmsMutation.mutateAsync({ phone: form.phone });
+      console.log("[Signup] SMS verification sent successfully");
       setVerificationStatus("sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
-    }, 900);
-  }, [canSendCode, form.phone, form.agreedToTerms]);
+    } catch (error) {
+      console.log("[Signup] SMS send error:", error);
+      setVerificationStatus("idle");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Failed to send code",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
+  }, [canSendCode, form.phone, form.agreedToTerms, sendSmsMutation]);
 
-  const handleVerify = useCallback(() => {
+  const handleVerify = useCallback(async () => {
     console.log("[Signup] Verifying code", form.code);
     if (!canVerify) {
       Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
       return;
     }
-    if (form.code !== "246810") {
+
+    try {
+      const result = await verifySmssmutation.mutateAsync({
+        phone: form.phone,
+        code: form.code,
+      });
+
+      if (!result.success) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Verification failed", "The code you entered is incorrect. Please try again.");
+        return;
+      }
+
+      setVerificationStatus("verified");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const member: MemberProfile = {
+        id: `member-${Date.now()}`,
+        fullName: form.fullName.trim(),
+        phone: form.phone,
+        email: form.email.trim(),
+        birthdate: `${form.birthMonth.trim().padStart(2, "0")}/${form.birthDay.trim().padStart(2, "0")}`,
+        birthYear: form.birthYear.trim(),
+        createdAt: new Date().toISOString(),
+        emailVerified: false,
+      };
+
+      console.log("[Signup] Creating member account", member.fullName);
+      registerMember(member);
+      login(member);
+
+      try {
+        await sendEmailMutation.mutateAsync({
+          email: form.email.trim(),
+          memberName: form.fullName.trim(),
+        });
+        console.log("[Signup] Email verification sent");
+      } catch (emailError) {
+        console.log("[Signup] Email send failed (non-blocking):", emailError);
+      }
+
+      setTimeout(() => {
+        Alert.alert(
+          "Verify your email",
+          `A confirmation email has been sent to ${form.email.trim()}. Please check your inbox and verify your email to start redeeming your points.\n\nYou can still earn points, but you won't be able to redeem them until your email is verified.`,
+        );
+      }, 500);
+
+      router.replace("/member-dashboard");
+    } catch (error) {
+      console.log("[Signup] Verification error:", error);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Code not recognized", "Use demo code 246810 to complete this prototype.");
+      Alert.alert(
+        "Verification failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
+  }, [canVerify, form, login, registerMember, verifySmssmutation, sendEmailMutation]);
+
+  const handleSendEmailCode = useCallback(async () => {
+    if (!isValidEmail(form.email)) {
+      Alert.alert("Invalid email", "Please enter a valid email address.");
       return;
     }
+    setEmailStatus("sending");
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await sendEmailMutation.mutateAsync({
+        email: form.email.trim(),
+        memberName: form.fullName.trim(),
+      });
+      setEmailStatus("sent");
+      Alert.alert("Email sent", "Check your inbox for a 6-digit verification code.");
+    } catch (error) {
+      console.log("[Signup] Email send error:", error);
+      setEmailStatus("idle");
+      Alert.alert("Failed", error instanceof Error ? error.message : "Could not send email.");
+    }
+  }, [form.email, form.fullName, sendEmailMutation]);
 
-    setVerificationStatus("verified");
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    const member: MemberProfile = {
-      id: `member-${Date.now()}`,
-      fullName: form.fullName.trim(),
-      phone: form.phone,
-      email: form.email.trim(),
-      birthdate: `${form.birthMonth.trim().padStart(2, "0")}/${form.birthDay.trim().padStart(2, "0")}`,
-      birthYear: form.birthYear.trim(),
-      createdAt: new Date().toISOString(),
-      emailVerified: false,
-    };
-
-    console.log("[Signup] Creating member account", member.fullName);
-    registerMember(member);
-    login(member);
-
-    setTimeout(() => {
-      Alert.alert(
-        "Verify your email",
-        `A confirmation email has been sent to ${form.email.trim()}. Please check your inbox and verify your email to start using your points.\n\nYou can still earn points, but you won't be able to redeem them until your email is verified.`,
-      );
-    }, 500);
-
-    router.replace("/member-dashboard");
-  }, [canVerify, form, login, registerMember]);
+  const handleVerifyEmail = useCallback(async () => {
+    if (form.emailCode.trim().length !== 6) {
+      Alert.alert("Invalid code", "Enter the 6-digit code from your email.");
+      return;
+    }
+    setEmailStatus("verifying");
+    try {
+      const result = await verifyEmailMutation.mutateAsync({
+        email: form.email.trim(),
+        code: form.emailCode.trim(),
+      });
+      if (!result.success) {
+        setEmailStatus("sent");
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Verification failed", "reason" in result ? (result.reason as string) : "Invalid code.");
+        return;
+      }
+      setEmailStatus("verified");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Email verified", "Your email has been confirmed.");
+    } catch (error) {
+      setEmailStatus("sent");
+      Alert.alert("Failed", error instanceof Error ? error.message : "Please try again.");
+    }
+  }, [form.email, form.emailCode, verifyEmailMutation]);
 
   return (
     <>
@@ -273,7 +366,13 @@ export default function MemberSignupScreen() {
 
           <ActionButton
             icon={MessageSquareMore}
-            label={verificationStatus === "sending" ? "Sending code..." : "Send text verification"}
+            label={
+              sendSmsMutation.isPending
+                ? "Sending code..."
+                : verificationStatus === "sent"
+                  ? "Resend verification code"
+                  : "Send text verification"
+            }
             onPress={handleSendCode}
             testID="signup-send-code-button"
             variant="secondary"
@@ -285,21 +384,63 @@ export default function MemberSignupScreen() {
                 label="Verification code"
                 keyboardType="numeric"
                 onChangeText={(value) => updateField("code", value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="246810"
+                placeholder="Enter 6-digit code"
                 testID="signup-code-input"
                 value={form.code}
               />
               <ActionButton
                 icon={CheckCircle2}
-                label="Complete sign up"
+                label={verifySmssmutation.isPending ? "Verifying..." : "Complete sign up"}
                 onPress={handleVerify}
                 testID="signup-complete-button"
                 variant="primary"
               />
             </>
           )}
-          <Text style={styles.helperText}>Demo verification code: 246810</Text>
         </Panel>
+
+        {verificationStatus === "verified" && emailStatus !== "verified" && (
+          <Panel testID="signup-email-verify-panel">
+            <SectionTitle
+              copy="Verify your email to unlock point redemptions."
+              title="Email verification"
+            />
+            {emailStatus === "sent" || emailStatus === "verifying" ? (
+              <>
+                <InputField
+                  label="Email verification code"
+                  keyboardType="numeric"
+                  onChangeText={(value) => updateField("emailCode", value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="Enter 6-digit code"
+                  testID="signup-email-code-input"
+                  value={form.emailCode}
+                />
+                <ActionButton
+                  icon={CheckCircle2}
+                  label={emailStatus === "verifying" ? "Verifying..." : "Verify email"}
+                  onPress={handleVerifyEmail}
+                  testID="signup-verify-email-button"
+                  variant="primary"
+                />
+                <ActionButton
+                  icon={Mail}
+                  label="Resend email code"
+                  onPress={handleSendEmailCode}
+                  testID="signup-resend-email-button"
+                  variant="secondary"
+                />
+              </>
+            ) : (
+              <ActionButton
+                icon={Mail}
+                label={sendEmailMutation.isPending ? "Sending..." : "Send email verification"}
+                onPress={handleSendEmailCode}
+                testID="signup-send-email-button"
+                variant="secondary"
+              />
+            )}
+          </Panel>
+        )}
 
         <Panel testID="signup-login-redirect-panel">
           <SectionTitle
@@ -336,11 +477,6 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: "#F7C58B",
     borderColor: "#F7C58B",
-  },
-  helperText: {
-    color: "#C8AA94",
-    fontSize: 13,
-    lineHeight: 18,
   },
   row: {
     flexDirection: "row",

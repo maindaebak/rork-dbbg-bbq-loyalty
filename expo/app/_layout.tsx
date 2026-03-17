@@ -4,6 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { trpc, trpcClient } from "@/lib/trpc";
 import { AdminAuthProvider } from "@/providers/admin-auth-provider";
 import { AuthProvider } from "@/providers/auth-provider";
 import { LoyaltyProgramProvider } from "@/providers/loyalty-program-provider";
@@ -39,18 +40,20 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AdminAuthProvider>
-          <MembersStoreProvider>
-            <LoyaltyProgramProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </LoyaltyProgramProvider>
-          </MembersStoreProvider>
-        </AdminAuthProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AdminAuthProvider>
+            <MembersStoreProvider>
+              <LoyaltyProgramProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </LoyaltyProgramProvider>
+            </MembersStoreProvider>
+          </AdminAuthProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }
