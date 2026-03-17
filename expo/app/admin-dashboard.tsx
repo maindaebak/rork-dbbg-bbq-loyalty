@@ -173,6 +173,15 @@ export default function AdminDashboardScreen() {
             <Text style={styles.infoText}>Logged in as staff administrator</Text>
           </View>
         </Panel>
+
+        <Pressable
+          onPress={handleLogout}
+          style={({ pressed }) => [styles.logoutRow, pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] }]}
+          testID="admin-logout-bottom-button"
+        >
+          <LogOut color="#E8634A" size={18} />
+          <Text style={styles.logoutText}>Log out of staff portal</Text>
+        </Pressable>
       </LoyaltyScreen>
     </>
   );
@@ -299,5 +308,22 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     gap: 10,
+  },
+  logoutRow: {
+    alignItems: "center",
+    backgroundColor: "rgba(232, 99, 74, 0.08)",
+    borderColor: "rgba(232, 99, 74, 0.2)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  logoutText: {
+    color: "#E8634A",
+    fontSize: 15,
+    fontWeight: "700" as const,
   },
 });
