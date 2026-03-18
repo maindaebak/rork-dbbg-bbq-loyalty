@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Info,
   LogOut,
-  Mail,
   Phone,
   Save,
   ShieldAlert,
@@ -31,29 +30,11 @@ function formatPhone(value: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
 export default function MemberProfileScreen() {
   const { member, updateProfile, logout, deleteAccount } = useAuth();
 
-  const [isEditingEmail, setIsEditingEmail] = useState<boolean>(false);
   const [isEditingPhone, setIsEditingPhone] = useState<boolean>(false);
-  const [editEmail, setEditEmail] = useState<string>(member?.email ?? "");
   const [editPhone, setEditPhone] = useState<string>(member?.phone ?? "");
-
-  const handleSaveEmail = useCallback(() => {
-    if (!editEmail.trim() || !isValidEmail(editEmail)) {
-      Alert.alert("Invalid email", "Please enter a valid email address.");
-      return;
-    }
-    console.log("[Profile] Saving new email", editEmail);
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateProfile({ email: editEmail.trim() });
-    setIsEditingEmail(false);
-    Alert.alert("Updated", "Your email has been updated.");
-  }, [editEmail, updateProfile]);
 
   const handleSavePhone = useCallback(() => {
     const digits = editPhone.replace(/\D/g, "");
@@ -138,18 +119,6 @@ export default function MemberProfileScreen() {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Mail color="#F7C58B" size={16} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{member?.email || "Not set"}</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
               <Phone color="#F7C58B" size={16} />
             </View>
             <View style={styles.infoContent}>
@@ -180,56 +149,6 @@ export default function MemberProfileScreen() {
               Birthday can only be changed by staff upon presenting a valid government-issued ID.
             </Text>
           </View>
-        </Panel>
-
-        <Panel testID="profile-edit-email-panel">
-          <SectionTitle copy="Update the email address linked to your account." title="Change email" />
-          {isEditingEmail ? (
-            <>
-              <InputField
-                label="New email"
-                keyboardType="email-address"
-                onChangeText={setEditEmail}
-                placeholder="name@email.com"
-                testID="profile-email-input"
-                value={editEmail}
-              />
-              <View style={styles.editActions}>
-                <Pressable
-                  onPress={() => {
-                    setIsEditingEmail(false);
-                    setEditEmail(member?.email ?? "");
-                  }}
-                  style={styles.cancelButton}
-                  testID="profile-email-cancel"
-                >
-                  <X color="#C8AA94" size={16} />
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSaveEmail}
-                  style={styles.saveButton}
-                  testID="profile-email-save"
-                >
-                  <Save color="#1A120E" size={16} />
-                  <Text style={styles.saveText}>Save</Text>
-                </Pressable>
-              </View>
-            </>
-          ) : (
-            <Pressable
-              onPress={() => {
-                setEditEmail(member?.email ?? "");
-                setIsEditingEmail(true);
-              }}
-              style={({ pressed }) => [styles.editRow, pressed && styles.pressed]}
-              testID="profile-edit-email-button"
-            >
-              <Mail color="#F8E7D0" size={16} />
-              <Text style={styles.editRowText}>Edit email address</Text>
-              <ChevronRight color="#F8E7D0" size={16} />
-            </Pressable>
-          )}
         </Panel>
 
         <Panel testID="profile-edit-phone-panel">

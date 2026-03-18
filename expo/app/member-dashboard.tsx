@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
-import { CheckCircle, Clock, Flame, Gift, Info, LogOut, Mail, QrCode, Star, User, XCircle } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import { Clock, Flame, Gift, Info, LogOut, QrCode, Star, User } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CollapsiblePanel, LoyaltyScreen, RewardCard } from "@/components/loyalty/ui";
@@ -11,128 +11,14 @@ import * as Haptics from "expo-haptics";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
-function EmailVerificationBanner({ verified, onVerify }: { verified: boolean; onVerify: () => void }) {
-  return (
-    <View style={verified ? bannerStyles.verified : bannerStyles.unverified} testID="email-verification-banner">
-      <View style={bannerStyles.row}>
-        {verified ? (
-          <CheckCircle color="#22C55E" size={18} />
-        ) : (
-          <XCircle color="#F87171" size={18} />
-        )}
-        <Text style={verified ? bannerStyles.verifiedText : bannerStyles.unverifiedText}>
-          {verified ? "Email address verified" : "Email not verified"}
-        </Text>
-        {!verified && (
-          <Pressable
-            onPress={onVerify}
-            style={({ pressed }) => [bannerStyles.verifyButton, pressed && { opacity: 0.7 }]}
-            testID="verify-email-button"
-          >
-            <Mail color="#1A120E" size={13} />
-            <Text style={bannerStyles.verifyButtonText}>Verify now</Text>
-          </Pressable>
-        )}
-      </View>
-      {!verified && (
-        <Text style={bannerStyles.hintText}>
-          You can still earn points, but you need to verify your email to redeem them.
-        </Text>
-      )}
-    </View>
-  );
-}
-
-const bannerStyles = StyleSheet.create({
-  verified: {
-    backgroundColor: "rgba(34, 197, 94, 0.08)",
-    borderColor: "rgba(34, 197, 94, 0.2)",
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  unverified: {
-    backgroundColor: "rgba(248, 113, 113, 0.06)",
-    borderColor: "rgba(248, 113, 113, 0.2)",
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  row: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  verifiedText: {
-    color: "#86EFAC",
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "700" as const,
-  },
-  unverifiedText: {
-    color: "#FCA5A5",
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "700" as const,
-  },
-  verifyButton: {
-    alignItems: "center",
-    backgroundColor: "#F7C58B",
-    borderRadius: 10,
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  verifyButtonText: {
-    color: "#1A120E",
-    fontSize: 12,
-    fontWeight: "800" as const,
-  },
-  hintText: {
-    color: "#C8AA94",
-    fontSize: 12,
-    lineHeight: 17,
-    marginLeft: 26,
-  },
-});
-
 function formatPoints(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
 export default function MemberDashboardScreen() {
   const { settings } = useLoyaltyProgram();
-  const { member, logout, verifyEmail } = useAuth();
-  const { getActivePoints, setEmailVerified } = useMembersStore();
-
-  const isEmailVerified = member?.emailVerified ?? false;
-
-  const handleVerifyEmail = useCallback(() => {
-    Alert.alert(
-      "Verify your email",
-      `A new confirmation email has been sent to ${member?.email ?? "your email"}. For this demo, tap "Confirm" to simulate verification.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: () => {
-            console.log("[Dashboard] Verifying email for member", member?.id);
-            verifyEmail();
-            if (member?.id) {
-              setEmailVerified(member.id, true);
-            }
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert("Email verified", "Your email has been verified. You can now redeem your points!");
-          },
-        },
-      ],
-    );
-  }, [member?.email, member?.id, setEmailVerified, verifyEmail]);
+  const { member, logout } = useAuth();
+  const { getActivePoints } = useMembersStore();
 
   const points = useMemo<number>(() => {
     if (!member?.id) return 0;
@@ -215,7 +101,6 @@ export default function MemberDashboardScreen() {
           copy="Show this QR code to staff for quick point lookup."
           icon={QrCode}
         >
-          <EmailVerificationBanner verified={isEmailVerified} onVerify={handleVerifyEmail} />
           <MemberQRCode memberId={member?.id ?? ""} memberName={member?.fullName ?? ""} />
         </CollapsiblePanel>
 

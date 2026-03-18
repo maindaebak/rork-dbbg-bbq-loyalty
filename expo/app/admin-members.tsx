@@ -5,13 +5,11 @@ import { Stack } from "expo-router";
 import {
   Calendar,
   Camera,
-  CheckCircle2,
   CircleDollarSign,
   Clock,
   Edit3,
   Flame,
   Gift,
-  Mail,
   Minus,
   Phone,
   QrCode,
@@ -93,7 +91,7 @@ export default function AdminMembersScreen() {
   const [removeNote, setRemoveNote] = useState<string>("");
   const [editMode, setEditMode] = useState<boolean>(false);
   const [editName, setEditName] = useState<string>("");
-  const [editEmail, setEditEmail] = useState<string>("");
+
   const [editPhone, setEditPhone] = useState<string>("");
   const [editBirthMonth, setEditBirthMonth] = useState<string>("");
   const [editBirthDay, setEditBirthDay] = useState<string>("");
@@ -134,9 +132,9 @@ export default function AdminMembersScreen() {
   const redeemableRewards = useMemo(() => {
     return settings.rewards.map((reward) => ({
       ...reward,
-      canRedeem: activePoints >= reward.points && (foundMember?.emailVerified ?? false),
+      canRedeem: activePoints >= reward.points,
     }));
-  }, [activePoints, foundMember?.emailVerified, settings.rewards]);
+  }, [activePoints, settings.rewards]);
 
   const handleSearch = useCallback(() => {
     const digits = searchPhone.replace(/\D/g, "");
@@ -222,7 +220,6 @@ export default function AdminMembersScreen() {
     if (!foundMember) return;
     const bdParts = foundMember.birthdate ? foundMember.birthdate.split("/") : ["", ""];
     setEditName(foundMember.fullName);
-    setEditEmail(foundMember.email);
     setEditPhone(foundMember.phone);
     setEditBirthMonth(bdParts[0] ?? "");
     setEditBirthDay(bdParts[1] ?? "");
@@ -255,7 +252,7 @@ export default function AdminMembersScreen() {
 
     Alert.alert(
       "Confirm changes",
-      `Save profile changes for ${foundMember.fullName}?\n\nName: ${editName.trim()}\nPhone: ${editPhone}\nEmail: ${editEmail.trim() || "Not set"}\nBirthday: ${birthdate}/${birthYear}`,
+      `Save profile changes for ${foundMember.fullName}?\n\nName: ${editName.trim()}\nPhone: ${editPhone}\nBirthday: ${birthdate}/${birthYear}`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -263,7 +260,6 @@ export default function AdminMembersScreen() {
           onPress: () => {
             updateMemberProfile(foundMember.id, {
               fullName: editName.trim(),
-              email: editEmail.trim(),
               phone: editPhone,
               birthdate,
               birthYear,
@@ -274,7 +270,6 @@ export default function AdminMembersScreen() {
               setFoundMember({
                 ...updated,
                 fullName: editName.trim(),
-                email: editEmail.trim(),
                 phone: editPhone,
                 birthdate,
                 birthYear,
@@ -287,7 +282,7 @@ export default function AdminMembersScreen() {
         },
       ],
     );
-  }, [editBirthDay, editBirthMonth, editBirthYear, editEmail, editName, editPhone, foundMember, members, updateMemberProfile]);
+  }, [editBirthDay, editBirthMonth, editBirthYear, editName, editPhone, foundMember, members, updateMemberProfile]);
 
   const handleCancelEdit = useCallback(() => {
     setEditMode(false);
@@ -376,14 +371,6 @@ export default function AdminMembersScreen() {
 
   const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
-
-    if (!foundMember.emailVerified) {
-      Alert.alert(
-        "Email not verified",
-        `${foundMember.fullName} has not verified their email address. Members must verify their email before redeeming rewards.`,
-      );
-      return;
-    }
 
     if (activePoints < rewardPoints) {
       Alert.alert(
@@ -564,18 +551,6 @@ export default function AdminMembersScreen() {
 
                 <View style={styles.infoRow}>
                   <View style={styles.infoIconWrap}>
-                    <Mail color="#F7C58B" size={14} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Email</Text>
-                    <Text style={styles.infoValue}>{foundMember.email || "Not provided"}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.infoDivider} />
-
-                <View style={styles.infoRow}>
-                  <View style={styles.infoIconWrap}>
                     <Flame color="#F7C58B" size={14} />
                   </View>
                   <View style={styles.infoContent}>
@@ -625,19 +600,8 @@ export default function AdminMembersScreen() {
                 </View>
               </View>
 
-              <View style={foundMember.emailVerified ? styles.emailVerifiedBanner : styles.emailUnverifiedBanner}>
-                {foundMember.emailVerified ? (
-                  <CheckCircle2 color="#22C55E" size={16} />
-                ) : (
-                  <X color="#F87171" size={16} />
-                )}
-                <Text style={foundMember.emailVerified ? styles.emailVerifiedText : styles.emailUnverifiedText}>
-                  {foundMember.emailVerified ? "Email verified" : "Email not verified"}
-                </Text>
-              </View>
-
               <View style={styles.verifyBanner}>
-                <CheckCircle2 color="#22C55E" size={16} />
+                <Star color="#22C55E" size={16} />
                 <Text style={styles.verifyText}>Verify the name matches before adding points</Text>
               </View>
             </CollapsiblePanel>
@@ -680,15 +644,6 @@ export default function AdminMembersScreen() {
                     testID="admin-edit-phone-input"
                     value={editPhone}
                   />
-                  <InputField
-                    label="Email address"
-                    keyboardType="email-address"
-                    onChangeText={setEditEmail}
-                    placeholder="name@email.com"
-                    testID="admin-edit-email-input"
-                    value={editEmail}
-                  />
-
                   <Text style={styles.editFieldLabel}>Birthday</Text>
                   <View style={styles.birthdayRow}>
                     <View style={styles.birthdayField}>
@@ -847,15 +802,6 @@ export default function AdminMembersScreen() {
               icon={Gift}
               iconColor="#F59E0B"
             >
-              {!foundMember.emailVerified && (
-                <View style={styles.emailUnverifiedBanner}>
-                  <X color="#F87171" size={16} />
-                  <Text style={styles.emailUnverifiedText}>
-                    Member must verify their email before redeeming rewards
-                  </Text>
-                </View>
-              )}
-
               <View style={styles.redeemPointsBadge}>
                 <Star color="#F7C58B" size={16} />
                 <Text style={styles.redeemPointsText}>{formatPoints(activePoints)} points available</Text>

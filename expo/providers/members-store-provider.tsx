@@ -9,11 +9,9 @@ export interface StoredMember {
   id: string;
   fullName: string;
   phone: string;
-  email: string;
   birthdate: string;
   birthYear: string;
   createdAt: string;
-  emailVerified: boolean;
   points: number;
   pointsHistory: PointsEntry[];
 }
@@ -85,7 +83,6 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       }
       const newMember: StoredMember = {
         ...member,
-        emailVerified: false,
         points: 0,
         pointsHistory: [],
       };
@@ -197,7 +194,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   );
 
   const updateMemberContact = useCallback(
-    (memberId: string, updates: Partial<Pick<StoredMember, "email" | "phone">>) => {
+    (memberId: string, updates: Partial<Pick<StoredMember, "phone">>) => {
       const updated = members.map((m) => {
         if (m.id === memberId) {
           return { ...m, ...updates };
@@ -210,7 +207,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   );
 
   const updateMemberProfile = useCallback(
-    (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "email" | "phone" | "birthdate" | "birthYear">>) => {
+    (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear">>) => {
       const updated = members.map((m) => {
         if (m.id === memberId) {
           return { ...m, ...updates };
@@ -219,20 +216,6 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       });
       saveMutation.mutate(updated);
       console.log("[MembersStore] Updated profile for member", memberId, updates);
-    },
-    [members, saveMutation],
-  );
-
-  const setEmailVerified = useCallback(
-    (memberId: string, verified: boolean) => {
-      const updated = members.map((m) => {
-        if (m.id === memberId) {
-          return { ...m, emailVerified: verified };
-        }
-        return m;
-      });
-      saveMutation.mutate(updated);
-      console.log("[MembersStore] Set emailVerified =", verified, "for member", memberId);
     },
     [members, saveMutation],
   );
@@ -258,7 +241,6 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       removePoints,
       updateMemberContact,
       updateMemberProfile,
-      setEmailVerified,
       deleteMember,
     }),
     [
@@ -272,7 +254,6 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       removePoints,
       updateMemberContact,
       updateMemberProfile,
-      setEmailVerified,
       deleteMember,
     ],
   );

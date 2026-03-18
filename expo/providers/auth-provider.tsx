@@ -9,11 +9,9 @@ export interface MemberProfile {
   id: string;
   fullName: string;
   phone: string;
-  email: string;
   birthdate: string;
   birthYear: string;
   createdAt: string;
-  emailVerified: boolean;
 }
 
 interface AuthState {
@@ -73,22 +71,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
   });
 
-  const verifyEmailMutation = useMutation({
-    mutationFn: async () => {
-      if (!auth.member) throw new Error("Not logged in");
-      const updated: MemberProfile = { ...auth.member, emailVerified: true };
-      const next: AuthState = { isLoggedIn: true, member: updated };
-      await persistSession(next);
-      return next;
-    },
-    onSuccess: (next) => {
-      setAuth(next);
-      queryClient.setQueryData(["member-auth-session"], next);
-    },
-  });
-
   const updateProfileMutation = useMutation({
-    mutationFn: async (updates: Partial<Pick<MemberProfile, "email" | "phone">>) => {
+    mutationFn: async (updates: Partial<Pick<MemberProfile, "phone">>) => {
       if (!auth.member) throw new Error("Not logged in");
       const updated: MemberProfile = { ...auth.member, ...updates };
       const next: AuthState = { isLoggedIn: true, member: updated };
@@ -129,12 +113,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   );
 
   const updateProfile = useCallback(
-    (updates: Partial<Pick<MemberProfile, "email" | "phone">>) =>
+    (updates: Partial<Pick<MemberProfile, "phone">>) =>
       updateProfileMutation.mutate(updates),
     [updateProfileMutation],
   );
-
-  const verifyEmail = useCallback(() => verifyEmailMutation.mutate(), [verifyEmailMutation]);
   const logout = useCallback(() => logoutMutation.mutate(), [logoutMutation]);
   const deleteAccount = useCallback(() => deleteAccountMutation.mutate(), [deleteAccountMutation]);
 
@@ -144,12 +126,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       isLoggedIn: auth.isLoggedIn,
       member: auth.member,
       login,
-      verifyEmail,
       updateProfile,
       logout,
       deleteAccount,
       isLoggingIn: loginMutation.isPending,
-      isVerifyingEmail: verifyEmailMutation.isPending,
       isUpdatingProfile: updateProfileMutation.isPending,
       isLoggingOut: logoutMutation.isPending,
       isDeletingAccount: deleteAccountMutation.isPending,
@@ -164,8 +144,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       loginMutation.isPending,
       logout,
       logoutMutation.isPending,
-      verifyEmail,
-      verifyEmailMutation.isPending,
       updateProfile,
       updateProfileMutation.isPending,
     ],
