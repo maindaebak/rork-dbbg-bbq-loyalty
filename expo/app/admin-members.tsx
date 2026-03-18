@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import {
   Calendar,
   Camera,
+  ChevronRight,
   CircleDollarSign,
   Clock,
   Edit3,
@@ -17,8 +18,10 @@ import {
   Search,
   ShieldCheck,
   Star,
+  Trash2,
   TrendingUp,
   User,
+  Users,
   X,
 } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -77,7 +80,7 @@ function getMemberStats(member: StoredMember) {
 }
 
 export default function AdminMembersScreen() {
-  const { findMemberByPhone, getMemberById, addPoints, removePoints, members, getActivePoints, updateMemberProfile } = useMembersStore();
+  const { findMemberByPhone, getMemberById, addPoints, removePoints, members, getActivePoints, updateMemberProfile, deleteMember } = useMembersStore();
   const { settings } = useLoyaltyProgram();
   const [searchPhone, setSearchPhone] = useState<string>("");
   const [foundMember, setFoundMember] = useState<StoredMember | null>(null);
@@ -96,6 +99,9 @@ export default function AdminMembersScreen() {
   const [editBirthMonth, setEditBirthMonth] = useState<string>("");
   const [editBirthDay, setEditBirthDay] = useState<string>("");
   const [editBirthYear, setEditBirthYear] = useState<string>("");
+  const [nameSearch, setNameSearch] = useState<string>("");
+  const [nameSearchResults, setNameSearchResults] = useState<StoredMember[]>([]);
+  const [nameSearchPerformed, setNameSearchPerformed] = useState<boolean>(false);
 
   const [nativePermission, nativeRequestPermission] = useCameraPermissions();
   const permission: PermissionResponse | null = Platform.OS !== "web" ? nativePermission : null;
@@ -135,6 +141,76 @@ export default function AdminMembersScreen() {
       canRedeem: activePoints >= reward.points,
     }));
   }, [activePoints, settings.rewards]);
+
+  const handleNameSearch = useCallback(() => {
+    const query = nameSearch.trim().toLowerCase();
+    if (query.length < 1) {
+      Alert.alert("Enter a name", "Please enter at least one character to search.");
+      return;
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const results = members.filter((m) => {
+      const name = m.fullName.toLowerCase();
+      const parts = query.split(/\s+/);
+      return parts.every((part) => name.includes(part));
+    });
+    setNameSearchResults(results);
+    setNameSearchPerformed(true);
+    console.log("[AdminMembers] Name search for", query, "found", results.length, "results");
+  }, [members, nameSearch]);
+
+  const handleSelectNameResult = useCallback((member: StoredMember) => {
+    setFoundMember(member);
+    setSearchPerformed(true);
+    setSearchPhone(member.phone);
+    setDollarAmount("");
+    setNote("");
+    setRemoveMode(false);
+    setRemoveAmount("");
+    setRemoveNote("");
+    setNameSearch("");
+    setNameSearchResults([]);
+    setNameSearchPerformed(false);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log("[AdminMembers] Selected member from name search:", member.fullName);
+  }, []);
+
+  const handleDeleteMember = useCallback(() => {
+    if (!foundMember) return;
+    Alert.alert(
+      "Delete member account",
+      `Are you sure you want to permanently delete ${foundMember.fullName}'s account?\n\nThis action cannot be undone. All points and history will be lost.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Final confirmation",
+              `Type-confirm: Permanently delete ${foundMember.fullName}?`,
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete",
+                  style: "destructive",
+                  onPress: () => {
+                    deleteMember(foundMember.id);
+                    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    setFoundMember(null);
+                    setSearchPerformed(false);
+                    setSearchPhone("");
+                    Alert.alert("Deleted", `${foundMember.fullName}'s account has been permanently deleted.`);
+                    console.log("[AdminMembers] Deleted member", foundMember.id);
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }, [deleteMember, foundMember]);
 
   const handleSearch = useCallback(() => {
     const digits = searchPhone.replace(/\D/g, "");
@@ -474,6 +550,60 @@ export default function AdminMembersScreen() {
             testID="admin-search-button"
             variant="primary"
           />
+        </CollapsiblePanel>
+
+        <CollapsiblePanel
+          testID="admin-name-search-panel"
+          title="Search by name"
+          copy="Search members by their first or last name."
+          icon={Users}
+        >
+          <InputField
+            label="Member name"
+            onChangeText={setNameSearch}
+            placeholder="John, Doe, or John Doe"
+            testID="admin-name-search-input"
+            value={nameSearch}
+          />
+          <ActionButton
+            icon={Search}
+            label="Search by name"
+            onPress={handleNameSearch}
+            testID="admin-name-search-button"
+            variant="primary"
+          />
+
+          {nameSearchPerformed && nameSearchResults.length === 0 && (
+            <View style={styles.nameNoResult}>
+              <User color="#C8AA94" size={22} />
+              <Text style={styles.nameNoResultText}>No members found matching "{nameSearch}"</Text>
+            </View>
+          )}
+
+          {nameSearchResults.length > 0 && (
+            <View style={styles.nameResultsList}>
+              <Text style={styles.nameResultsCount}>
+                {nameSearchResults.length} member{nameSearchResults.length !== 1 ? "s" : ""} found
+              </Text>
+              {nameSearchResults.map((member) => (
+                <Pressable
+                  key={member.id}
+                  onPress={() => handleSelectNameResult(member)}
+                  style={({ pressed }) => [styles.nameResultCard, pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }]}
+                  testID={`name-result-${member.id}`}
+                >
+                  <View style={styles.nameResultAvatar}>
+                    <User color="#F7C58B" size={16} />
+                  </View>
+                  <View style={styles.nameResultInfo}>
+                    <Text style={styles.nameResultName}>{member.fullName}</Text>
+                    <Text style={styles.nameResultPhone}>{member.phone}</Text>
+                  </View>
+                  <ChevronRight color="#8E6D56" size={16} />
+                </Pressable>
+              ))}
+            </View>
+          )}
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -900,6 +1030,29 @@ export default function AdminMembersScreen() {
                   </View>
                 </>
               )}
+            </CollapsiblePanel>
+
+            <CollapsiblePanel
+              testID="admin-delete-member-panel"
+              title="Delete member"
+              copy="Permanently delete this member's account. This action cannot be undone."
+              icon={Trash2}
+              iconColor="#EF4444"
+            >
+              <View style={styles.deleteWarningBanner}>
+                <Trash2 color="#F87171" size={18} />
+                <Text style={styles.deleteWarningText}>
+                  Deleting this account will permanently remove all of {foundMember.fullName}'s data including points balance, transaction history, and profile information.
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleDeleteMember}
+                style={({ pressed }) => [styles.deleteButton, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
+                testID="admin-delete-member-button"
+              >
+                <Trash2 color="#FFF" size={16} />
+                <Text style={styles.deleteButtonText}>Delete {foundMember.fullName}'s Account</Text>
+              </Pressable>
             </CollapsiblePanel>
 
             {foundMember.pointsHistory.length > 0 && (
@@ -1550,5 +1703,88 @@ const styles = StyleSheet.create({
     color: "#8E6D56",
     fontSize: 13,
     fontWeight: "700" as const,
+  },
+  nameNoResult: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+  },
+  nameNoResultText: {
+    color: "#C8AA94",
+    fontSize: 13,
+    textAlign: "center" as const,
+  },
+  nameResultsList: {
+    gap: 8,
+  },
+  nameResultsCount: {
+    color: "#C8AA94",
+    fontSize: 12,
+    fontWeight: "700" as const,
+    marginBottom: 2,
+  },
+  nameResultCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.14)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 12,
+  },
+  nameResultAvatar: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 12,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  nameResultInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  nameResultName: {
+    color: "#FFF7ED",
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  nameResultPhone: {
+    color: "#C8AA94",
+    fontSize: 12,
+  },
+  deleteWarningBanner: {
+    alignItems: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderColor: "rgba(239, 68, 68, 0.2)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  deleteWarningText: {
+    color: "#FCA5A5",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  deleteButton: {
+    alignItems: "center",
+    backgroundColor: "#DC2626",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  deleteButtonText: {
+    color: "#FFF",
+    fontSize: 15,
+    fontWeight: "800" as const,
   },
 });
