@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -46,9 +47,15 @@ export default function RootLayout() {
           <AdminAuthProvider>
             <MembersStoreProvider>
               <LoyaltyProgramProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
+                {Platform.OS === "web" ? (
+                  <View style={{ flex: 1 }}>
+                    <RootLayoutNav />
+                  </View>
+                ) : (
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <RootLayoutNav />
+                  </GestureHandlerRootView>
+                )}
               </LoyaltyProgramProvider>
             </MembersStoreProvider>
           </AdminAuthProvider>

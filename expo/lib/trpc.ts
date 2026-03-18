@@ -10,9 +10,8 @@ const getBaseUrl = () => {
   const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
 
   if (!url) {
-    throw new Error(
-      "EXPO_PUBLIC_RORK_API_BASE_URL is not set",
-    );
+    console.warn("EXPO_PUBLIC_RORK_API_BASE_URL is not set, using empty string");
+    return "";
   }
 
   return url;
