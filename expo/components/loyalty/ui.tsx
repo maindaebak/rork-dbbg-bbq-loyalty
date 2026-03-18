@@ -182,7 +182,9 @@ export function CollapsiblePanel({
   const spinAnim = useRef(new Animated.Value(defaultOpen ? 1 : 0)).current;
 
   const toggle = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (Platform.OS !== "web") {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     const next = !expanded;
     setExpanded(next);
     Animated.timing(spinAnim, {

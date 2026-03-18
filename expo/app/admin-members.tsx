@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import type { PermissionResponse } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
 import {
@@ -98,7 +99,12 @@ export default function AdminMembersScreen() {
   const [editBirthDay, setEditBirthDay] = useState<string>("");
   const [editBirthYear, setEditBirthYear] = useState<string>("");
 
-  const [permission, requestPermission] = useCameraPermissions();
+  const [nativePermission, nativeRequestPermission] = useCameraPermissions();
+  const permission: PermissionResponse | null = Platform.OS !== "web" ? nativePermission : null;
+  const requestPermission = useCallback(async () => {
+    if (Platform.OS === "web") return { granted: false } as PermissionResponse;
+    return nativeRequestPermission();
+  }, [nativeRequestPermission]);
 
   const activePoints = useMemo<number>(() => {
     if (!foundMember) return 0;
@@ -1143,7 +1149,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     gap: 4,
-    minWidth: "45%" as unknown as number,
+    minWidth: 100,
     paddingHorizontal: 8,
     paddingVertical: 14,
   },

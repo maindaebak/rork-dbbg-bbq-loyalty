@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   ActionButton,
@@ -387,5 +387,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     minHeight: 200,
     padding: 14,
+    ...(Platform.OS !== "web" ? { textAlignVertical: "top" as const } : {}),
   },
 });
