@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, FileText, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
+import { CheckCircle2, FileText, MessageSquareMore, Settings, Sparkles, UserPlus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -11,7 +11,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import { trpc } from "@/lib/trpc";
+import { trpc, trpcClient } from "@/lib/trpc";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -68,6 +68,26 @@ export default function MemberSignupScreen() {
 
   const sendSmsMutation = trpc.verification.sendSmsCode.useMutation();
   const verifySmsMutation = trpc.verification.verifySmsCode.useMutation();
+  const [diagResult, setDiagResult] = useState<string | null>(null);
+
+  const handleCheckConfig = useCallback(async () => {
+    try {
+      setDiagResult("Checking...");
+      const result = await trpcClient.verification.checkTwilioConfig.query();
+      const lines = [
+        `Account SID: ${result.accountSidPresent ? result.accountSidPrefix + "... (len:" + result.accountSidLength + ")" : "MISSING"}`,
+        `Auth Token: ${result.authTokenPresent ? "present (len:" + result.authTokenLength + ")" : "MISSING"}`,
+        `Service SID: ${result.serviceSidPresent ? result.serviceSidFull : "MISSING"}`,
+        `Service Check: ${result.serviceCheck}`,
+      ];
+      setDiagResult(lines.join("\n"));
+      Alert.alert("Twilio Config Check", lines.join("\n"));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      setDiagResult(`Error: ${msg}`);
+      Alert.alert("Config Check Failed", msg);
+    }
+  }, []);
 
   const updateField = useCallback((key: keyof SignupFormState, value: string) => {
     setForm((current) => ({
@@ -276,6 +296,21 @@ export default function MemberSignupScreen() {
             variant="secondary"
           />
 
+          <Pressable
+            onPress={handleCheckConfig}
+            style={({ pressed }) => [styles.diagButton, pressed && { opacity: 0.7 }]}
+            testID="signup-check-config"
+          >
+            <Settings color="#8B7355" size={14} />
+            <Text style={styles.diagButtonText}>Check Twilio Config</Text>
+          </Pressable>
+
+          {diagResult && (
+            <View style={styles.diagResult}>
+              <Text style={styles.diagResultText} selectable>{diagResult}</Text>
+            </View>
+          )}
+
           {(verificationStatus === "sent" || verificationStatus === "verified") && (
             <>
               <InputField
@@ -396,5 +431,27 @@ const styles = StyleSheet.create({
     color: "#F7C58B",
     fontSize: 13,
     fontWeight: "700" as const,
+  },
+  diagButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  diagButtonText: {
+    color: "#8B7355",
+    fontSize: 12,
+  },
+  diagResult: {
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 8,
+    padding: 10,
+  },
+  diagResultText: {
+    color: "#E7CDB8",
+    fontFamily: "monospace" as const,
+    fontSize: 11,
+    lineHeight: 18,
   },
 });
