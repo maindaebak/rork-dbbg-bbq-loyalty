@@ -30,7 +30,19 @@ async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
   }
 
   const url = `https://verify.twilio.com/v2/Services/${serviceSid}${path}`;
-  const authHeader = "Basic " + btoa(`${accountSid}:${authToken}`);
+  const credentials = `${accountSid}:${authToken}`;
+  let base64: string;
+  try {
+    if (typeof Buffer !== "undefined") {
+      base64 = Buffer.from(credentials).toString("base64");
+    } else {
+      base64 = btoa(credentials);
+    }
+  } catch (e) {
+    console.error("[Twilio] Base64 encoding failed:", e);
+    base64 = btoa(unescape(encodeURIComponent(credentials)));
+  }
+  const authHeader = `Basic ${base64}`;
 
   const formParts: string[] = [];
   for (const [key, value] of Object.entries(body)) {
