@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../create-context";
 
+function stripNonPrintable(str: string): string {
+  return str.replace(/[^\x20-\x7E]/g, "").trim();
+}
+
 function formatE164(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
@@ -13,45 +17,42 @@ function formatE164(phone: string): string {
 }
 
 async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
-  const accountSid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim();
-  const authToken = (process.env.TWILIO_AUTH_TOKEN ?? "").trim();
-  const serviceSid = (process.env.TWILIO_VERIFY_SERVICE_SID ?? "").trim();
+  const accountSid = stripNonPrintable(process.env.TWILIO_ACCOUNT_SID ?? "");
+  const authToken = stripNonPrintable(process.env.TWILIO_AUTH_TOKEN ?? "");
+  const serviceSid = stripNonPrintable(process.env.TWILIO_VERIFY_SERVICE_SID ?? "");
 
-  console.log("[Twilio] accountSid length:", accountSid.length, "prefix:", accountSid.substring(0, 4));
+  console.log("[Twilio] accountSid:", JSON.stringify(accountSid));
   console.log("[Twilio] authToken length:", authToken.length);
-  console.log("[Twilio] serviceSid length:", serviceSid.length, "prefix:", serviceSid.substring(0, 4));
+  console.log("[Twilio] serviceSid:", JSON.stringify(serviceSid));
 
   if (!accountSid || !authToken || !serviceSid) {
-    const missing = [];
+    const missing: string[] = [];
     if (!accountSid) missing.push("TWILIO_ACCOUNT_SID");
     if (!authToken) missing.push("TWILIO_AUTH_TOKEN");
     if (!serviceSid) missing.push("TWILIO_VERIFY_SERVICE_SID");
     throw new Error(`Missing Twilio config: ${missing.join(", ")}`);
   }
 
+  if (!accountSid.startsWith("AC")) {
+    throw new Error(`Invalid TWILIO_ACCOUNT_SID: must start with 'AC', got '${accountSid.substring(0, 4)}...'`);
+  }
+  if (!serviceSid.startsWith("VA")) {
+    throw new Error(`Invalid TWILIO_VERIFY_SERVICE_SID: must start with 'VA', got '${serviceSid.substring(0, 4)}...'`);
+  }
+
   const url = `https://verify.twilio.com/v2/Services/${serviceSid}${path}`;
   const credentials = `${accountSid}:${authToken}`;
-  let base64: string;
-  try {
-    if (typeof Buffer !== "undefined") {
-      base64 = Buffer.from(credentials).toString("base64");
-    } else {
-      base64 = btoa(credentials);
-    }
-  } catch (e) {
-    console.error("[Twilio] Base64 encoding failed:", e);
-    base64 = btoa(unescape(encodeURIComponent(credentials)));
-  }
+  const base64 = typeof Buffer !== "undefined"
+    ? Buffer.from(credentials).toString("base64")
+    : btoa(credentials);
   const authHeader = `Basic ${base64}`;
 
-  const formParts: string[] = [];
-  for (const [key, value] of Object.entries(body)) {
-    formParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
-  }
-  const formBody = formParts.join("&");
+  const formBody = Object.entries(body)
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join("&");
 
   console.log("[Twilio] POST", url);
-  console.log("[Twilio] form body:", formBody);
+  console.log("[Twilio] body params:", JSON.stringify(body));
 
   const response = await fetch(url, {
     method: "POST",
@@ -73,9 +74,11 @@ async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
   }
 
   if (!response.ok) {
-    const msg = (json.message ?? json.error_message ?? `Twilio error (HTTP ${response.status})`) as string;
-    console.error("[Twilio] API error:", msg, "code:", json.code);
-    throw new Error(msg);
+    const twilioCode = String(json.code ?? "unknown");
+    const twilioMsg = (json.message ?? json.error_message ?? "Unknown Twilio error") as string;
+    const moreInfo = (json.more_info ?? "") as string;
+    console.error("[Twilio] Error code:", twilioCode, "message:", twilioMsg, "more_info:", moreInfo);
+    throw new Error(`Twilio error ${twilioCode}: ${twilioMsg}`);
   }
 
   return json;
