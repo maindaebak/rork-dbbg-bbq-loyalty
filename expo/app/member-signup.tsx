@@ -38,10 +38,11 @@ const INITIAL_FORM: SignupFormState = {
 };
 
 function formatPhone(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-  if (digits.length < 4) return digits;
-  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (!value.startsWith("+")) {
+    value = "+" + value;
+  }
+  const cleaned = "+" + value.replace(/[^\d]/g, "").slice(0, 15);
+  return cleaned;
 }
 
 function isValidBirthMonth(value: string): boolean {
@@ -78,7 +79,7 @@ export default function MemberSignupScreen() {
   const canSendCode = useMemo<boolean>(() => {
     return Boolean(
       form.fullName.trim().length >= 2 &&
-        form.phone.replace(/\D/g, "").length === 10 &&
+        form.phone.replace(/[^\d]/g, "").length >= 11 &&
         isValidBirthMonth(form.birthMonth) &&
         isValidBirthDay(form.birthDay) &&
         isValidBirthYear(form.birthYear) &&
@@ -102,9 +103,9 @@ export default function MemberSignupScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const rawDigits = form.phone.replace(/\D/g, "");
-      console.log("[Signup] Sending SMS to:", rawDigits);
-      await sendSmsMutation.mutateAsync({ phone: rawDigits });
+      const e164 = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
+      console.log("[Signup] Sending SMS to:", e164);
+      await sendSmsMutation.mutateAsync({ phone: e164 });
       console.log("[Signup] SMS sent successfully");
       setVerificationStatus("sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
@@ -124,10 +125,10 @@ export default function MemberSignupScreen() {
     }
 
     try {
-      const rawDigits = form.phone.replace(/\D/g, "");
-      console.log("[Signup] Verifying code for:", rawDigits);
+      const e164 = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
+      console.log("[Signup] Verifying code for:", e164);
       const result = await verifySmsMutation.mutateAsync({
-        phone: rawDigits,
+        phone: e164,
         code: form.code,
       });
 
@@ -193,7 +194,7 @@ export default function MemberSignupScreen() {
             label="Phone number"
             keyboardType="phone-pad"
             onChangeText={(value) => updateField("phone", value)}
-            placeholder="555-123-4567"
+            placeholder="+1XXXXXXXXXX"
             testID="signup-phone-input"
             value={form.phone}
           />

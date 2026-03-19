@@ -6,6 +6,9 @@ function stripNonPrintable(str: string): string {
 }
 
 function formatE164(phone: string): string {
+  if (phone.startsWith("+") && phone.length >= 11) {
+    return phone;
+  }
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
     return `+${digits}`;
@@ -13,7 +16,10 @@ function formatE164(phone: string): string {
   if (digits.length === 10) {
     return `+1${digits}`;
   }
-  throw new Error(`Invalid phone number format. Expected 10 digits, got ${digits.length}.`);
+  if (digits.length >= 11) {
+    return `+${digits}`;
+  }
+  throw new Error(`Invalid phone number format. Please include country code (e.g. +1 for US).`);
 }
 
 async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
@@ -88,6 +94,7 @@ export const verificationRouter = createTRPCRouter({
   sendSmsCode: publicProcedure
     .input(z.object({ phone: z.string().min(10) }))
     .mutation(async ({ input }) => {
+      console.log("[Verification] Raw phone input:", input.phone);
       const e164 = formatE164(input.phone);
       console.log("[Verification] Sending SMS to:", e164);
 
@@ -103,6 +110,7 @@ export const verificationRouter = createTRPCRouter({
   verifySmsCode: publicProcedure
     .input(z.object({ phone: z.string().min(10), code: z.string().length(6) }))
     .mutation(async ({ input }) => {
+      console.log("[Verification] Raw phone input:", input.phone);
       const e164 = formatE164(input.phone);
       console.log("[Verification] Checking code for:", e164);
 

@@ -18,10 +18,11 @@ import { useMembersStore } from "@/providers/members-store-provider";
 type LoginStep = "phone" | "code-sent" | "verified";
 
 function formatPhone(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-  if (digits.length < 4) return digits;
-  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (!value.startsWith("+")) {
+    value = "+" + value;
+  }
+  const cleaned = "+" + value.replace(/[^\d]/g, "").slice(0, 15);
+  return cleaned;
 }
 
 export default function MemberLoginScreen() {
@@ -35,7 +36,7 @@ export default function MemberLoginScreen() {
   const verifySmsMutation = trpc.verification.verifySmsCode.useMutation();
 
   const canSendCode = useMemo<boolean>(
-    () => phone.replace(/\D/g, "").length === 10,
+    () => phone.replace(/[^\d]/g, "").length >= 11,
     [phone],
   );
 
@@ -43,16 +44,16 @@ export default function MemberLoginScreen() {
 
   const handleSendCode = useCallback(async () => {
     if (!canSendCode) {
-      Alert.alert("Phone required", "Enter your 10-digit phone number to receive a verification code.");
+      Alert.alert("Phone required", "Enter your phone number with country code (e.g. +1 for US).");
       return;
     }
 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const rawDigits = phone.replace(/\D/g, "");
-      console.log("[Login] Sending SMS to:", rawDigits);
-      await sendSmsMutation.mutateAsync({ phone: rawDigits });
+      const e164 = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
+      console.log("[Login] Sending SMS to:", e164);
+      await sendSmsMutation.mutateAsync({ phone: e164 });
       console.log("[Login] SMS sent successfully");
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
@@ -71,9 +72,9 @@ export default function MemberLoginScreen() {
     }
 
     try {
-      const rawDigits = phone.replace(/\D/g, "");
-      console.log("[Login] Verifying code for:", rawDigits);
-      const result = await verifySmsMutation.mutateAsync({ phone: rawDigits, code });
+      const e164 = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
+      console.log("[Login] Verifying code for:", e164);
+      const result = await verifySmsMutation.mutateAsync({ phone: e164, code });
 
       if (!result.success) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -139,7 +140,7 @@ export default function MemberLoginScreen() {
             label="Phone number"
             keyboardType="phone-pad"
             onChangeText={(value) => setPhone(formatPhone(value))}
-            placeholder="555-123-4567"
+            placeholder="+1XXXXXXXXXX"
             testID="login-phone-input"
             value={phone}
           />
