@@ -51,12 +51,16 @@ export default function MemberLoginScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await sendSmsMutation.mutateAsync({ phone });
+      const rawDigits = phone.replace(/\D/g, "");
+      console.log("[Login] Sending SMS to digits:", rawDigits, "formatted:", phone);
+      await sendSmsMutation.mutateAsync({ phone: rawDigits });
       console.log("[Login] SMS verification sent successfully");
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
-      console.log("[Login] SMS send error:", error);
+      console.log("[Login] SMS send error:", JSON.stringify(error, null, 2));
+      console.log("[Login] Error name:", error instanceof Error ? error.name : "unknown");
+      console.log("[Login] Error message:", error instanceof Error ? error.message : String(error));
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         "Failed to send code",
@@ -73,7 +77,9 @@ export default function MemberLoginScreen() {
     }
 
     try {
-      const result = await verifySmsMutation.mutateAsync({ phone, code });
+      const rawDigits = phone.replace(/\D/g, "");
+      console.log("[Login] Verifying code for digits:", rawDigits);
+      const result = await verifySmsMutation.mutateAsync({ phone: rawDigits, code });
 
       if (!result.success) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -90,21 +96,17 @@ export default function MemberLoginScreen() {
             id: existingMember.id,
             fullName: existingMember.fullName,
             phone: existingMember.phone,
-            email: existingMember.email,
             birthdate: existingMember.birthdate,
             birthYear: existingMember.birthYear,
             createdAt: existingMember.createdAt,
-            emailVerified: existingMember.emailVerified ?? false,
           }
         : {
             id: `member-${Date.now()}`,
             fullName: "Returning Member",
             phone,
-            email: "",
             birthdate: "",
             birthYear: "",
             createdAt: new Date().toISOString(),
-            emailVerified: false,
           };
 
       console.log("[Login] Member logged in with phone", phone);
