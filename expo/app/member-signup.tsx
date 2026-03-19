@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, FileText, MessageSquareMore, Settings, Sparkles, UserPlus } from "lucide-react-native";
+import { CheckCircle2, FileText, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -11,7 +11,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import { trpc, trpcClient } from "@/lib/trpc";
+import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -66,28 +66,8 @@ export default function MemberSignupScreen() {
   const [form, setForm] = useState<SignupFormState>(INITIAL_FORM);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("idle");
 
-  const sendSmsMutation = trpc.verification.sendSmsCode.useMutation();
-  const verifySmsMutation = trpc.verification.verifySmsCode.useMutation();
-  const [diagResult, setDiagResult] = useState<string | null>(null);
-
-  const handleCheckConfig = useCallback(async () => {
-    try {
-      setDiagResult("Checking...");
-      const result = await trpcClient.verification.checkTwilioConfig.query();
-      const lines = [
-        `Account SID: ${result.accountSidPresent ? result.accountSidPrefix + "... (len:" + result.accountSidLength + ")" : "MISSING"}`,
-        `Auth Token: ${result.authTokenPresent ? "present (len:" + result.authTokenLength + ")" : "MISSING"}`,
-        `Service SID: ${result.serviceSidPresent ? result.serviceSidFull : "MISSING"}`,
-        `Service Check: ${result.serviceCheck}`,
-      ];
-      setDiagResult(lines.join("\n"));
-      Alert.alert("Twilio Config Check", lines.join("\n"));
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      setDiagResult(`Error: ${msg}`);
-      Alert.alert("Config Check Failed", msg);
-    }
-  }, []);
+  const [isSending, setIsSending] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
   const updateField = useCallback((key: keyof SignupFormState, value: string) => {
     setForm((current) => ({
@@ -120,13 +100,19 @@ export default function MemberSignupScreen() {
     }
 
     setVerificationStatus("sending");
+    setIsSending(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       const phoneToSend = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
       console.log("[Signup] Sending SMS to:", phoneToSend);
-      await sendSmsMutation.mutateAsync({ phone: phoneToSend });
-      console.log("[Signup] SMS sent successfully");
+      const result = await sendSmsCode(phoneToSend);
+      console.log("[Signup] SMS result:", JSON.stringify(result));
+
+      if (!result.success) {
+        throw new Error(result.error ?? "Failed to send verification code.");
+      }
+
       setVerificationStatus("sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
@@ -135,8 +121,10 @@ export default function MemberSignupScreen() {
       setVerificationStatus("idle");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Failed to send code", msg);
+    } finally {
+      setIsSending(false);
     }
-  }, [canSendCode, form.phone, form.agreedToTerms, sendSmsMutation]);
+  }, [canSendCode, form.phone, form.agreedToTerms]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
@@ -144,13 +132,12 @@ export default function MemberSignupScreen() {
       return;
     }
 
+    setIsVerifying(true);
     try {
       const phoneToSend = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
       console.log("[Signup] Verifying code for:", phoneToSend);
-      const result = await verifySmsMutation.mutateAsync({
-        phone: phoneToSend,
-        code: form.code,
-      });
+      const result = await verifySmsCode(phoneToSend, form.code);
+      console.log("[Signup] Verify result:", JSON.stringify(result));
 
       if (!result.success) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -179,8 +166,10 @@ export default function MemberSignupScreen() {
       console.error("[Signup] Verify error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Verification failed", msg);
+    } finally {
+      setIsVerifying(false);
     }
-  }, [canVerify, form, login, registerMember, verifySmsMutation]);
+  }, [canVerify, form, login, registerMember]);
 
   return (
     <>
@@ -285,7 +274,7 @@ export default function MemberSignupScreen() {
           <ActionButton
             icon={MessageSquareMore}
             label={
-              sendSmsMutation.isPending
+              isSending
                 ? "Sending code..."
                 : verificationStatus === "sent"
                   ? "Resend verification code"
@@ -295,21 +284,6 @@ export default function MemberSignupScreen() {
             testID="signup-send-code-button"
             variant="secondary"
           />
-
-          <Pressable
-            onPress={handleCheckConfig}
-            style={({ pressed }) => [styles.diagButton, pressed && { opacity: 0.7 }]}
-            testID="signup-check-config"
-          >
-            <Settings color="#8B7355" size={14} />
-            <Text style={styles.diagButtonText}>Check Twilio Config</Text>
-          </Pressable>
-
-          {diagResult && (
-            <View style={styles.diagResult}>
-              <Text style={styles.diagResultText} selectable>{diagResult}</Text>
-            </View>
-          )}
 
           {(verificationStatus === "sent" || verificationStatus === "verified") && (
             <>
@@ -323,7 +297,7 @@ export default function MemberSignupScreen() {
               />
               <ActionButton
                 icon={CheckCircle2}
-                label={verifySmsMutation.isPending ? "Verifying..." : "Complete sign up"}
+                label={isVerifying ? "Verifying..." : "Complete sign up"}
                 onPress={handleVerify}
                 testID="signup-complete-button"
                 variant="primary"
@@ -432,26 +406,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700" as const,
   },
-  diagButton: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-    paddingVertical: 8,
-  },
-  diagButtonText: {
-    color: "#8B7355",
-    fontSize: 12,
-  },
-  diagResult: {
-    backgroundColor: "rgba(0,0,0,0.3)",
-    borderRadius: 8,
-    padding: 10,
-  },
-  diagResultText: {
-    color: "#E7CDB8",
-    fontFamily: "monospace" as const,
-    fontSize: 11,
-    lineHeight: 18,
-  },
+
 });

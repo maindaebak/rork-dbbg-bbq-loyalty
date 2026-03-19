@@ -11,7 +11,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import { trpc } from "@/lib/trpc";
+import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -32,8 +32,8 @@ export default function MemberLoginScreen() {
   const [code, setCode] = useState<string>("");
   const [step, setStep] = useState<LoginStep>("phone");
 
-  const sendSmsMutation = trpc.verification.sendSmsCode.useMutation();
-  const verifySmsMutation = trpc.verification.verifySmsCode.useMutation();
+  const [isSending, setIsSending] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
   const canSendCode = useMemo<boolean>(
     () => phone.replace(/[^\d]/g, "").length >= 11,
@@ -49,12 +49,18 @@ export default function MemberLoginScreen() {
     }
 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsSending(true);
 
     try {
       const phoneToSend = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
       console.log("[Login] Sending SMS to:", phoneToSend);
-      await sendSmsMutation.mutateAsync({ phone: phoneToSend });
-      console.log("[Login] SMS sent successfully");
+      const result = await sendSmsCode(phoneToSend);
+      console.log("[Login] SMS result:", JSON.stringify(result));
+
+      if (!result.success) {
+        throw new Error(result.error ?? "Failed to send verification code.");
+      }
+
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
@@ -62,8 +68,10 @@ export default function MemberLoginScreen() {
       console.error("[Login] Send SMS error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Failed to send code", msg);
+    } finally {
+      setIsSending(false);
     }
-  }, [canSendCode, phone, sendSmsMutation]);
+  }, [canSendCode, phone]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
@@ -71,10 +79,12 @@ export default function MemberLoginScreen() {
       return;
     }
 
+    setIsVerifying(true);
     try {
       const phoneToSend = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
       console.log("[Login] Verifying code for:", phoneToSend);
-      const result = await verifySmsMutation.mutateAsync({ phone: phoneToSend, code });
+      const result = await verifySmsCode(phoneToSend, code);
+      console.log("[Login] Verify result:", JSON.stringify(result));
 
       if (!result.success) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -112,8 +122,10 @@ export default function MemberLoginScreen() {
       console.error("[Login] Verify error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Verification failed", msg);
+    } finally {
+      setIsVerifying(false);
     }
-  }, [canVerify, code, findMemberByPhone, login, phone, verifySmsMutation]);
+  }, [canVerify, code, findMemberByPhone, login, phone]);
 
   return (
     <>
@@ -147,7 +159,7 @@ export default function MemberLoginScreen() {
           <ActionButton
             icon={MessageSquareMore}
             label={
-              sendSmsMutation.isPending
+              isSending
                 ? "Sending code..."
                 : step === "code-sent"
                   ? "Resend verification code"
@@ -175,7 +187,7 @@ export default function MemberLoginScreen() {
             />
             <ActionButton
               icon={CheckCircle2}
-              label={verifySmsMutation.isPending ? "Verifying..." : "Verify & log in"}
+              label={isVerifying ? "Verifying..." : "Verify & log in"}
               onPress={handleVerify}
               testID="login-verify-button"
               variant="primary"
