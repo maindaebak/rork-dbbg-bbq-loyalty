@@ -3,7 +3,7 @@ import createContextHook from "@nkzw/create-context-hook";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { trpcClient } from "@/lib/trpc";
+import { adminLogin as apiAdminLogin } from "@/lib/api";
 
 const ADMIN_AUTH_KEY = "dbbg-admin-session";
 
@@ -49,13 +49,14 @@ export const [AdminAuthProvider, useAdminAuth] = createContextHook(() => {
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const result = await trpcClient.admin.login.mutate({ email, password });
+      console.log("[AdminAuth] Attempting login via API for", email);
+      const result = await apiAdminLogin(email, password);
 
       if (!result.success) {
-        throw new Error("Invalid admin credentials");
+        throw new Error(result.error ?? "Invalid admin credentials");
       }
 
-      const next: AdminAuthState = { isLoggedIn: true, email: result.email };
+      const next: AdminAuthState = { isLoggedIn: true, email: result.email ?? email };
       await AsyncStorage.setItem(ADMIN_AUTH_KEY, JSON.stringify(next));
       console.log("[AdminAuth] Admin logged in via server");
       return next;

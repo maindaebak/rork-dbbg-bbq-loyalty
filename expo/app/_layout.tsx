@@ -5,7 +5,6 @@ import React, { useEffect } from "react";
 import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { trpc, trpcClient } from "@/lib/trpc";
 import { AdminAuthProvider } from "@/providers/admin-auth-provider";
 import { AuthProvider } from "@/providers/auth-provider";
 import { LoyaltyProgramProvider } from "@/providers/loyalty-program-provider";
@@ -41,8 +40,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <AdminAuthProvider>
             <MembersStoreProvider>
@@ -60,7 +58,6 @@ export default function RootLayout() {
             </MembersStoreProvider>
           </AdminAuthProvider>
         </AuthProvider>
-      </QueryClientProvider>
-    </trpc.Provider>
+    </QueryClientProvider>
   );
 }

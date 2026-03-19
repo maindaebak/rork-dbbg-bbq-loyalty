@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-console.log("[Backend] Starting Dae Bak Bon Ga API server...");
+console.log("[Backend] Starting Dae Bak Bon Ga API server v7...");
 
 const app = new Hono();
 
@@ -11,7 +11,6 @@ const E164_REGEX = /^\+[1-9]\d{6,14}$/;
 
 function formatE164(phone: string): string {
   let cleaned = phone.replace(/[^\d+]/g, "");
-  console.log("[formatE164] Input:", JSON.stringify(phone), "Cleaned:", JSON.stringify(cleaned));
 
   if (!cleaned.startsWith("+")) {
     const digits = cleaned.replace(/\D/g, "");
@@ -30,7 +29,6 @@ function formatE164(phone: string): string {
     throw new Error(`Invalid phone number format: "${cleaned}". Must be E.164 format like +12025551234.`);
   }
 
-  console.log("[formatE164] Result:", cleaned);
   return cleaned;
 }
 
@@ -38,10 +36,6 @@ function getTwilioCredentials() {
   const accountSid = (process.env.TWILIO_ACCOUNT_SID ?? "").replace(/[^\x20-\x7E]/g, "").trim();
   const authToken = (process.env.TWILIO_AUTH_TOKEN ?? "").replace(/[^\x20-\x7E]/g, "").trim();
   const serviceSid = (process.env.TWILIO_VERIFY_SERVICE_SID ?? "").replace(/[^\x20-\x7E]/g, "").trim();
-
-  console.log("[Twilio] accountSid:", JSON.stringify(accountSid), "len:", accountSid.length);
-  console.log("[Twilio] authToken present:", authToken.length > 0, "len:", authToken.length);
-  console.log("[Twilio] serviceSid:", JSON.stringify(serviceSid), "len:", serviceSid.length);
 
   if (!accountSid || !authToken || !serviceSid) {
     const missing: string[] = [];
@@ -52,10 +46,10 @@ function getTwilioCredentials() {
   }
 
   if (!accountSid.startsWith("AC")) {
-    throw new Error(`Invalid TWILIO_ACCOUNT_SID: must start with 'AC'`);
+    throw new Error("Invalid TWILIO_ACCOUNT_SID: must start with 'AC'");
   }
   if (!serviceSid.startsWith("VA")) {
-    throw new Error(`Invalid TWILIO_VERIFY_SERVICE_SID: must start with 'VA'`);
+    throw new Error("Invalid TWILIO_VERIFY_SERVICE_SID: must start with 'VA'");
   }
 
   return { accountSid, authToken, serviceSid };
@@ -75,7 +69,6 @@ async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
     .join("&");
 
   console.log("[Twilio] POST", url);
-  console.log("[Twilio] Body:", JSON.stringify(body));
 
   const response = await fetch(url, {
     method: "POST",
@@ -88,7 +81,6 @@ async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
 
   const text = await response.text();
   console.log("[Twilio] Response status:", response.status);
-  console.log("[Twilio] Response body:", text.substring(0, 1000));
 
   let json: Record<string, unknown>;
   try {
@@ -98,58 +90,40 @@ async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
   }
 
   if (!response.ok) {
-    const twilioCode = typeof json.code === "string" || typeof json.code === "number" ? String(json.code) : "unknown";
-    const twilioMsg = typeof json.message === "string" ? json.message : typeof json.error_message === "string" ? json.error_message : "Unknown error";
-    console.error("[Twilio] ERROR - code:", twilioCode, "message:", twilioMsg);
-    throw new Error(`Twilio error (${twilioCode}): ${twilioMsg}`);
+    const twilioMsg = typeof json.message === "string" ? json.message : "Unknown error";
+    throw new Error(`Twilio error: ${twilioMsg}`);
   }
 
   return json;
 }
 
-const healthCheck = (c: any) =>
-  c.json({
-    status: "ok",
-    message: "Dae Bak Bon Ga API is running",
-    time: new Date().toISOString(),
-  });
-
-app.get("/", healthCheck);
-
-
-app.post("/send-sms", async (c) => {
+async function handleSendSms(c: any) {
   try {
     const body = await c.req.json();
     const phone = typeof body.phone === "string" ? body.phone : "";
-    console.log("[API] /api/send-sms called with phone:", JSON.stringify(phone));
+    console.log("[API] send-sms called with phone:", JSON.stringify(phone));
 
     if (phone.replace(/[^\d]/g, "").length < 8) {
       return c.json({ success: false, error: "Phone number is too short." }, 400);
     }
 
     const e164 = formatE164(phone);
-    console.log("[API] Formatted E.164:", e164);
-
-    const result = await callTwilioVerifyAPI("/Verifications", {
-      To: e164,
-      Channel: "sms",
-    });
-
-    console.log("[API] SMS sent successfully, status:", result.status);
+    const result = await callTwilioVerifyAPI("/Verifications", { To: e164, Channel: "sms" });
+    console.log("[API] SMS sent, status:", result.status);
     return c.json({ success: true, status: result.status as string });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("[API] /api/send-sms FAILED:", msg);
+    console.error("[API] send-sms FAILED:", msg);
     return c.json({ success: false, error: msg }, 500);
   }
-});
+}
 
-app.post("/verify-sms", async (c) => {
+async function handleVerifySms(c: any) {
   try {
     const body = await c.req.json();
     const phone = typeof body.phone === "string" ? body.phone : "";
     const code = typeof body.code === "string" ? body.code : "";
-    console.log("[API] /api/verify-sms called with phone:", JSON.stringify(phone));
+    console.log("[API] verify-sms called with phone:", JSON.stringify(phone));
 
     if (phone.replace(/[^\d]/g, "").length < 8) {
       return c.json({ success: false, error: "Phone number is too short." }, 400);
@@ -159,22 +133,48 @@ app.post("/verify-sms", async (c) => {
     }
 
     const e164 = formatE164(phone);
-    const result = await callTwilioVerifyAPI("/VerificationCheck", {
-      To: e164,
-      Code: code,
-    });
-
+    const result = await callTwilioVerifyAPI("/VerificationCheck", { To: e164, Code: code });
     const approved = result.status === "approved";
-    console.log("[API] Verification result:", approved ? "APPROVED" : "DENIED");
+    console.log("[API] Verification:", approved ? "APPROVED" : "DENIED");
     return c.json({ success: approved, status: result.status as string });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("[API] /api/verify-sms FAILED:", msg);
+    console.error("[API] verify-sms FAILED:", msg);
     return c.json({ success: false, error: msg }, 500);
   }
-});
+}
 
-const twilioCheck = (c: any) => {
+async function handleAdminLogin(c: any) {
+  try {
+    const body = await c.req.json();
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    console.log("[API] admin-login called for:", email);
+
+    const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+    const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim();
+
+    if (!adminEmail || !adminPassword) {
+      return c.json({ success: false, error: "Admin credentials not configured on server" }, 500);
+    }
+
+    if (email !== adminEmail || password !== adminPassword) {
+      return c.json({ success: false, error: "Invalid admin credentials" }, 401);
+    }
+
+    console.log("[API] Admin login successful for", email);
+    return c.json({ success: true, email });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return c.json({ success: false, error: msg }, 500);
+  }
+}
+
+function handleHealth(c: any) {
+  return c.json({ status: "ok", v: 7, message: "Dae Bak Bon Ga API is running", time: new Date().toISOString() });
+}
+
+function handleTwilioCheck(c: any) {
   const accountSid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim();
   const authToken = (process.env.TWILIO_AUTH_TOKEN ?? "").trim();
   const serviceSid = (process.env.TWILIO_VERIFY_SERVICE_SID ?? "").trim();
@@ -186,10 +186,23 @@ const twilioCheck = (c: any) => {
     serviceSidPresent: serviceSid.length > 0,
     serviceSidStartsWithVA: serviceSid.startsWith("VA"),
   });
-};
+}
 
-app.get("/twilio-check", twilioCheck);
+app.get("/", handleHealth);
+app.get("/api", handleHealth);
 
-console.log("[Backend] Server ready");
+app.post("/send-sms", handleSendSms);
+app.post("/api/send-sms", handleSendSms);
+
+app.post("/verify-sms", handleVerifySms);
+app.post("/api/verify-sms", handleVerifySms);
+
+app.get("/twilio-check", handleTwilioCheck);
+app.get("/api/twilio-check", handleTwilioCheck);
+
+app.post("/admin-login", handleAdminLogin);
+app.post("/api/admin-login", handleAdminLogin);
+
+console.log("[Backend] Server v7 ready");
 
 export default app;
