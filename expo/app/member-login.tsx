@@ -58,13 +58,16 @@ export default function MemberLoginScreen() {
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
-      console.log("[Login] SMS send error:", JSON.stringify(error, null, 2));
-      console.log("[Login] Error name:", error instanceof Error ? error.name : "unknown");
-      console.log("[Login] Error message:", error instanceof Error ? error.message : String(error));
+      const msg = error instanceof Error ? error.message : String(error);
+      console.log("[Login] SMS send error:", msg);
+      console.log("[Login] tRPC URL:", process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const isUrlError = msg.includes("string") && msg.includes("pattern");
       Alert.alert(
         "Failed to send code",
-        error instanceof Error ? error.message : "Please try again.",
+        isUrlError
+          ? "Unable to connect to the server. Please check your internet connection and try again."
+          : msg,
       );
     }
   }, [canSendCode, phone, sendSmsMutation]);

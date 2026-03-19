@@ -111,17 +111,24 @@ export default function MemberSignupScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await sendSmsMutation.mutateAsync({ phone: form.phone });
+      const rawDigits = form.phone.replace(/\D/g, "");
+      console.log("[Signup] Sending SMS to digits:", rawDigits);
+      await sendSmsMutation.mutateAsync({ phone: rawDigits });
       console.log("[Signup] SMS verification sent successfully");
       setVerificationStatus("sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
-      console.log("[Signup] SMS send error:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.log("[Signup] SMS send error:", msg);
+      console.log("[Signup] tRPC URL:", process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
       setVerificationStatus("idle");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const isUrlError = msg.includes("string") && msg.includes("pattern");
       Alert.alert(
         "Failed to send code",
-        error instanceof Error ? error.message : "Please try again.",
+        isUrlError
+          ? "Unable to connect to the server. Please check your internet connection and try again."
+          : msg,
       );
     }
   }, [canSendCode, form.phone, form.agreedToTerms, sendSmsMutation]);
@@ -134,8 +141,10 @@ export default function MemberSignupScreen() {
     }
 
     try {
+      const rawDigits = form.phone.replace(/\D/g, "");
+      console.log("[Signup] Verifying code for digits:", rawDigits);
       const result = await verifySmssmutation.mutateAsync({
-        phone: form.phone,
+        phone: rawDigits,
         code: form.code,
       });
 
