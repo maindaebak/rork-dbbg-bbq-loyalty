@@ -20,34 +20,42 @@ app.use(
   }),
 );
 
-app.get("/", (c) => {
-  return c.json({
+app.use(
+  "/api/trpc/*",
+  trpcServer({
+    endpoint: "/api/trpc",
+    router: appRouter,
+    createContext,
+  }),
+);
+
+const healthCheck = (c: any) =>
+  c.json({
     status: "ok",
     message: "Dae Bak Bon Ga API is running",
-    version: 6,
     time: new Date().toISOString(),
   });
-});
 
-app.get("/twilio-check", (c) => {
+app.get("/", healthCheck);
+app.get("/api", healthCheck);
+app.get("/api/", healthCheck);
+
+const twilioCheck = (c: any) => {
   const accountSid = (process.env.TWILIO_ACCOUNT_SID ?? "").trim();
   const authToken = (process.env.TWILIO_AUTH_TOKEN ?? "").trim();
   const serviceSid = (process.env.TWILIO_VERIFY_SERVICE_SID ?? "").trim();
 
   return c.json({
-    accountSid: accountSid ? `${accountSid.substring(0, 6)}...${accountSid.substring(accountSid.length - 4)}` : "MISSING",
-    accountSidLength: accountSid.length,
+    accountSidPresent: accountSid.length > 0,
     accountSidStartsWithAC: accountSid.startsWith("AC"),
-    authTokenLength: authToken.length,
     authTokenPresent: authToken.length > 0,
-    serviceSid: serviceSid ? `${serviceSid.substring(0, 6)}...${serviceSid.substring(serviceSid.length - 4)}` : "MISSING",
-    serviceSidLength: serviceSid.length,
+    serviceSidPresent: serviceSid.length > 0,
     serviceSidStartsWithVA: serviceSid.startsWith("VA"),
-    hasNonPrintableInSid: /[^\x20-\x7E]/.test(accountSid),
-    hasNonPrintableInToken: /[^\x20-\x7E]/.test(authToken),
-    hasNonPrintableInService: /[^\x20-\x7E]/.test(serviceSid),
   });
-});
+};
+
+app.get("/twilio-check", twilioCheck);
+app.get("/api/twilio-check", twilioCheck);
 
 console.log("[Backend] Server ready");
 

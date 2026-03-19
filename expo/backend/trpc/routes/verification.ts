@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 import { createTRPCRouter, publicProcedure } from "../create-context";
 
 const E164_REGEX = /^\+[1-9]\d{6,14}$/;
