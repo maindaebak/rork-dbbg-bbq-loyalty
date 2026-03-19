@@ -7,21 +7,38 @@ function getTwilioConfig() {
   const authToken = (process.env.TWILIO_AUTH_TOKEN ?? "").trim();
   const serviceSid = (process.env.TWILIO_VERIFY_SERVICE_SID ?? "").trim();
 
-  console.log("[Twilio] Config check - SID starts with:", accountSid.substring(0, 4), "Service starts with:", serviceSid.substring(0, 4));
+  console.log("[Twilio] Config check - AccountSID length:", accountSid.length, "starts:", accountSid.substring(0, 4));
+  console.log("[Twilio] Config check - AuthToken length:", authToken.length);
+  console.log("[Twilio] Config check - ServiceSID length:", serviceSid.length, "starts:", serviceSid.substring(0, 4));
 
   if (!accountSid || !authToken || !serviceSid) {
-    throw new Error("Twilio credentials not configured on server");
+    const missing = [
+      !accountSid && "TWILIO_ACCOUNT_SID",
+      !authToken && "TWILIO_AUTH_TOKEN",
+      !serviceSid && "TWILIO_VERIFY_SERVICE_SID",
+    ].filter(Boolean).join(", ");
+    throw new Error(`Twilio credentials missing: ${missing}`);
+  }
+
+  if (!accountSid.startsWith("AC")) {
+    throw new Error("TWILIO_ACCOUNT_SID must start with 'AC'");
+  }
+
+  if (!serviceSid.startsWith("VA")) {
+    throw new Error("TWILIO_VERIFY_SERVICE_SID must start with 'VA'");
   }
 
   return { accountSid, authToken, serviceSid };
 }
 
 function toBase64(str: string): string {
-  try {
-    return Buffer.from(str, "utf-8").toString("base64");
-  } catch {
-    return btoa(str);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
+  return btoa(binary);
 }
 
 async function twilioFetch(path: string, body: Record<string, string>) {
@@ -35,26 +52,43 @@ async function twilioFetch(path: string, body: Record<string, string>) {
 
   console.log("[Twilio] POST", url);
   console.log("[Twilio] Body:", formBody);
+  console.log("[Twilio] Auth header length:", credentials.length);
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: formBody,
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formBody,
+    });
 
-  const data = await res.json();
-  console.log("[Twilio] Response status:", res.status, "body:", JSON.stringify(data));
+    const rawText = await res.text();
+    console.log("[Twilio] Response status:", res.status, "raw:", rawText.substring(0, 500));
 
-  if (!res.ok) {
-    const errMsg = data.message ?? data.error_message ?? "Twilio request failed";
-    console.error("[Twilio] Error:", errMsg, "Code:", data.code, "More info:", data.more_info);
-    throw new Error(errMsg);
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.error("[Twilio] Failed to parse response as JSON");
+      throw new Error(`Twilio returned non-JSON response (status ${res.status}): ${rawText.substring(0, 200)}`);
+    }
+
+    if (!res.ok) {
+      const errMsg = (data.message ?? data.error_message ?? "Twilio request failed") as string;
+      console.error("[Twilio] Error:", errMsg, "Code:", data.code, "More info:", data.more_info);
+      throw new Error(errMsg);
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Twilio")) {
+      throw error;
+    }
+    console.error("[Twilio] Fetch error:", error);
+    throw new Error(`Failed to connect to Twilio: ${error instanceof Error ? error.message : String(error)}`);
   }
-
-  return data;
 }
 
 export const verificationRouter = createTRPCRouter({
