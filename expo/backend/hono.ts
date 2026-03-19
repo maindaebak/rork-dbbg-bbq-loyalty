@@ -115,10 +115,9 @@ const healthCheck = (c: any) =>
   });
 
 app.get("/", healthCheck);
-app.get("/api", healthCheck);
-app.get("/api/", healthCheck);
 
-app.post("/api/send-sms", async (c) => {
+
+app.post("/send-sms", async (c) => {
   try {
     const body = await c.req.json();
     const phone = typeof body.phone === "string" ? body.phone : "";
@@ -145,7 +144,7 @@ app.post("/api/send-sms", async (c) => {
   }
 });
 
-app.post("/api/verify-sms", async (c) => {
+app.post("/verify-sms", async (c) => {
   try {
     const body = await c.req.json();
     const phone = typeof body.phone === "string" ? body.phone : "";
@@ -190,7 +189,6 @@ const twilioCheck = (c: any) => {
 };
 
 app.get("/twilio-check", twilioCheck);
-app.get("/api/twilio-check", twilioCheck);
 
 console.log("[Backend] Server ready");
 
