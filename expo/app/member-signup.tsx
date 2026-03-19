@@ -13,7 +13,6 @@ import {
 } from "@/components/loyalty/ui";
 import { trpc } from "@/lib/trpc";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
-
 import { useMembersStore } from "@/providers/members-store-provider";
 
 interface SignupFormState {
@@ -67,10 +66,9 @@ export default function MemberSignupScreen() {
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("idle");
 
   const sendSmsMutation = trpc.verification.sendSmsCode.useMutation();
-  const verifySmssmutation = trpc.verification.verifySmsCode.useMutation();
+  const verifySmsMutation = trpc.verification.verifySmsCode.useMutation();
 
   const updateField = useCallback((key: keyof SignupFormState, value: string) => {
-    console.log("[Signup] Updating field", key);
     setForm((current) => ({
       ...current,
       [key]: key === "phone" ? formatPhone(value) : value,
@@ -91,19 +89,12 @@ export default function MemberSignupScreen() {
   const canVerify = useMemo<boolean>(() => form.code.trim().length === 6, [form.code]);
 
   const handleSendCode = useCallback(async () => {
-    console.log("[Signup] Sending verification code to", form.phone);
     if (!form.agreedToTerms) {
-      Alert.alert(
-        "Terms & Conditions",
-        "You must agree to the Terms & Conditions before signing up.",
-      );
+      Alert.alert("Terms & Conditions", "You must agree to the Terms & Conditions before signing up.");
       return;
     }
     if (!canSendCode) {
-      Alert.alert(
-        "Missing info",
-        "Please fill in all fields before requesting a verification code.",
-      );
+      Alert.alert("Missing info", "Please fill in all fields before requesting a verification code.");
       return;
     }
 
@@ -112,29 +103,21 @@ export default function MemberSignupScreen() {
 
     try {
       const rawDigits = form.phone.replace(/\D/g, "");
-      console.log("[Signup] Sending SMS to digits:", rawDigits);
+      console.log("[Signup] Sending SMS to:", rawDigits);
       await sendSmsMutation.mutateAsync({ phone: rawDigits });
-      console.log("[Signup] SMS verification sent successfully");
+      console.log("[Signup] SMS sent successfully");
       setVerificationStatus("sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.log("[Signup] SMS send error:", msg);
-      console.log("[Signup] tRPC URL:", process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
+      console.error("[Signup] Send SMS error:", msg);
       setVerificationStatus("idle");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const isUrlError = msg.includes("string") && msg.includes("pattern");
-      Alert.alert(
-        "Failed to send code",
-        isUrlError
-          ? "Unable to connect to the server. Please check your internet connection and try again."
-          : msg,
-      );
+      Alert.alert("Failed to send code", msg);
     }
   }, [canSendCode, form.phone, form.agreedToTerms, sendSmsMutation]);
 
   const handleVerify = useCallback(async () => {
-    console.log("[Signup] Verifying code", form.code);
     if (!canVerify) {
       Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
       return;
@@ -142,8 +125,8 @@ export default function MemberSignupScreen() {
 
     try {
       const rawDigits = form.phone.replace(/\D/g, "");
-      console.log("[Signup] Verifying code for digits:", rawDigits);
-      const result = await verifySmssmutation.mutateAsync({
+      console.log("[Signup] Verifying code for:", rawDigits);
+      const result = await verifySmsMutation.mutateAsync({
         phone: rawDigits,
         code: form.code,
       });
@@ -166,20 +149,17 @@ export default function MemberSignupScreen() {
         createdAt: new Date().toISOString(),
       };
 
-      console.log("[Signup] Creating member account", member.fullName);
+      console.log("[Signup] Creating member:", member.fullName);
       registerMember(member);
       login(member);
-
       router.replace("/member-dashboard");
     } catch (error) {
-      console.log("[Signup] Verification error:", error);
+      const msg = error instanceof Error ? error.message : "Please try again.";
+      console.error("[Signup] Verify error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        "Verification failed",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      Alert.alert("Verification failed", msg);
     }
-  }, [canVerify, form, login, registerMember, verifySmssmutation]);
+  }, [canVerify, form, login, registerMember, verifySmsMutation]);
 
   return (
     <>
@@ -264,10 +244,7 @@ export default function MemberSignupScreen() {
             <Text style={styles.termsText}>
               I agree to the{" "}
               <Text
-                onPress={() => {
-                  console.log("[Signup] Opening terms");
-                  router.push("/terms-conditions");
-                }}
+                onPress={() => router.push("/terms-conditions")}
                 style={styles.termsLink}
               >
                 Terms & Conditions
@@ -276,10 +253,7 @@ export default function MemberSignupScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => {
-              console.log("[Signup] Opening terms page");
-              router.push("/terms-conditions");
-            }}
+            onPress={() => router.push("/terms-conditions")}
             style={({ pressed }) => [styles.viewTermsButton, pressed && { opacity: 0.7 }]}
             testID="signup-view-terms-button"
           >
@@ -313,7 +287,7 @@ export default function MemberSignupScreen() {
               />
               <ActionButton
                 icon={CheckCircle2}
-                label={verifySmssmutation.isPending ? "Verifying..." : "Complete sign up"}
+                label={verifySmsMutation.isPending ? "Verifying..." : "Complete sign up"}
                 onPress={handleVerify}
                 testID="signup-complete-button"
                 variant="primary"
@@ -330,10 +304,7 @@ export default function MemberSignupScreen() {
           <ActionButton
             icon={UserPlus}
             label="Log in instead"
-            onPress={() => {
-              console.log("[Signup] Redirecting to login");
-              router.replace("/member-login");
-            }}
+            onPress={() => router.replace("/member-login")}
             testID="signup-go-login-button"
             variant="secondary"
           />
@@ -344,6 +315,13 @@ export default function MemberSignupScreen() {
 }
 
 const styles = StyleSheet.create({
+  birthdateNote: {
+    color: "#C8AA94",
+    fontSize: 12,
+    fontStyle: "italic" as const,
+    lineHeight: 17,
+    marginTop: -2,
+  },
   checkbox: {
     alignItems: "center",
     backgroundColor: "rgba(255, 247, 237, 0.06)",
@@ -367,13 +345,6 @@ const styles = StyleSheet.create({
   },
   rowItemSmall: {
     flex: 0.6,
-  },
-  birthdateNote: {
-    color: "#C8AA94",
-    fontSize: 12,
-    fontStyle: "italic" as const,
-    lineHeight: 17,
-    marginTop: -2,
   },
   statusPill: {
     alignItems: "center",

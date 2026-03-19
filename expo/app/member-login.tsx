@@ -42,7 +42,6 @@ export default function MemberLoginScreen() {
   const canVerify = useMemo<boolean>(() => code.trim().length === 6, [code]);
 
   const handleSendCode = useCallback(async () => {
-    console.log("[Login] Requesting verification code for", phone);
     if (!canSendCode) {
       Alert.alert("Phone required", "Enter your 10-digit phone number to receive a verification code.");
       return;
@@ -52,27 +51,20 @@ export default function MemberLoginScreen() {
 
     try {
       const rawDigits = phone.replace(/\D/g, "");
-      console.log("[Login] Sending SMS to digits:", rawDigits, "formatted:", phone);
+      console.log("[Login] Sending SMS to:", rawDigits);
       await sendSmsMutation.mutateAsync({ phone: rawDigits });
-      console.log("[Login] SMS verification sent successfully");
+      console.log("[Login] SMS sent successfully");
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Login] SMS send error:", msg);
-      console.error("[Login] tRPC URL:", process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
+      console.error("[Login] Send SMS error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        "Failed to send code",
-        msg.includes("Unable to reach") || msg.includes("pattern") || msg.includes("network") || msg.includes("Network")
-          ? "Unable to connect to the server. Please check your internet connection and try again."
-          : msg,
-      );
+      Alert.alert("Failed to send code", msg);
     }
   }, [canSendCode, phone, sendSmsMutation]);
 
   const handleVerify = useCallback(async () => {
-    console.log("[Login] Verifying code", code);
     if (!canVerify) {
       Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
       return;
@@ -80,7 +72,7 @@ export default function MemberLoginScreen() {
 
     try {
       const rawDigits = phone.replace(/\D/g, "");
-      console.log("[Login] Verifying code for digits:", rawDigits);
+      console.log("[Login] Verifying code for:", rawDigits);
       const result = await verifySmsMutation.mutateAsync({ phone: rawDigits, code });
 
       if (!result.success) {
@@ -111,16 +103,14 @@ export default function MemberLoginScreen() {
             createdAt: new Date().toISOString(),
           };
 
-      console.log("[Login] Member logged in with phone", phone);
+      console.log("[Login] Member logged in:", member.fullName);
       login(member);
       router.replace("/member-dashboard");
     } catch (error) {
-      console.log("[Login] Verification error:", error);
+      const msg = error instanceof Error ? error.message : "Please try again.";
+      console.error("[Login] Verify error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        "Verification failed",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      Alert.alert("Verification failed", msg);
     }
   }, [canVerify, code, findMemberByPhone, login, phone, verifySmsMutation]);
 
@@ -148,10 +138,7 @@ export default function MemberLoginScreen() {
           <InputField
             label="Phone number"
             keyboardType="phone-pad"
-            onChangeText={(value) => {
-              console.log("[Login] Updating phone");
-              setPhone(formatPhone(value));
-            }}
+            onChangeText={(value) => setPhone(formatPhone(value))}
             placeholder="555-123-4567"
             testID="login-phone-input"
             value={phone}
@@ -180,10 +167,7 @@ export default function MemberLoginScreen() {
             <InputField
               label="6-digit code"
               keyboardType="numeric"
-              onChangeText={(value) => {
-                console.log("[Login] Updating code");
-                setCode(value.replace(/\D/g, "").slice(0, 6));
-              }}
+              onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
               placeholder="Enter 6-digit code"
               testID="login-code-input"
               value={code}
@@ -206,10 +190,7 @@ export default function MemberLoginScreen() {
           <ActionButton
             icon={LogIn}
             label="Sign up instead"
-            onPress={() => {
-              console.log("[Login] Redirecting to signup");
-              router.replace("/member-signup");
-            }}
+            onPress={() => router.replace("/member-signup")}
             testID="login-go-signup-button"
             variant="secondary"
           />

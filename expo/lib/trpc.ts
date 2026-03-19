@@ -7,17 +7,17 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 export const trpc = createTRPCReact<AppRouter>();
 
 function getTrpcUrl(): string {
-  const url = (process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? "").trim();
-  console.log("[tRPC] Base URL:", JSON.stringify(url));
+  const raw = (process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? "").trim();
+  console.log("[tRPC] EXPO_PUBLIC_RORK_API_BASE_URL:", JSON.stringify(raw));
 
-  if (!url) {
-    console.warn("[tRPC] EXPO_PUBLIC_RORK_API_BASE_URL is not set, using fallback");
-    return "https://placeholder.invalid/api/trpc";
+  if (!raw) {
+    console.warn("[tRPC] No base URL configured");
+    return "/api/trpc";
   }
 
-  const base = url.endsWith("/") ? url.slice(0, -1) : url;
+  const base = raw.endsWith("/") ? raw.slice(0, -1) : raw;
   const full = `${base}/api/trpc`;
-  console.log("[tRPC] Full endpoint URL:", full);
+  console.log("[tRPC] Endpoint:", full);
   return full;
 }
 
@@ -27,15 +27,19 @@ export const trpcClient = trpc.createClient({
       url: getTrpcUrl(),
       transformer: superjson,
       fetch: async (input, init) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
-        console.log('[tRPC] Fetching:', url);
+        const url = typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+        console.log("[tRPC] Fetching:", url);
         try {
           const response = await fetch(input, init);
-          console.log('[tRPC] Response status:', response.status);
+          console.log("[tRPC] Response status:", response.status);
           return response;
         } catch (error) {
-          console.error('[tRPC] Network error:', error);
-          throw new Error('Unable to reach the server. Please check your connection and try again.');
+          console.error("[tRPC] Network error:", error);
+          throw new Error("Unable to reach the server. Please check your connection and try again.");
         }
       },
     }),
