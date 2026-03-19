@@ -5,21 +5,31 @@ function stripNonPrintable(str: string): string {
   return str.replace(/[^\x20-\x7E]/g, "").trim();
 }
 
+const E164_REGEX = /^\+[1-9]\d{6,14}$/;
+
 function formatE164(phone: string): string {
-  if (phone.startsWith("+") && phone.length >= 11) {
-    return phone;
+  let cleaned = phone.replace(/[^\d+]/g, "");
+  console.log("[formatE164] Input:", JSON.stringify(phone), "Cleaned:", JSON.stringify(cleaned));
+
+  if (!cleaned.startsWith("+")) {
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length === 10) {
+      cleaned = `+1${digits}`;
+    } else if (digits.length === 11 && digits.startsWith("1")) {
+      cleaned = `+${digits}`;
+    } else if (digits.length >= 7) {
+      cleaned = `+${digits}`;
+    } else {
+      throw new Error(`Invalid phone number. Please enter your full number with country code (e.g. +12025551234).`);
+    }
   }
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `+${digits}`;
+
+  if (!E164_REGEX.test(cleaned)) {
+    throw new Error(`Invalid phone number format: "${cleaned}". Must be E.164 format like +12025551234.`);
   }
-  if (digits.length === 10) {
-    return `+1${digits}`;
-  }
-  if (digits.length >= 11) {
-    return `+${digits}`;
-  }
-  throw new Error(`Invalid phone number format. Please include country code (e.g. +1 for US).`);
+
+  console.log("[formatE164] Result:", cleaned);
+  return cleaned;
 }
 
 async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
@@ -92,11 +102,12 @@ async function callTwilioVerifyAPI(path: string, body: Record<string, string>) {
 
 export const verificationRouter = createTRPCRouter({
   sendSmsCode: publicProcedure
-    .input(z.object({ phone: z.string().min(10) }))
+    .input(z.object({ phone: z.string().min(8) }))
     .mutation(async ({ input }) => {
-      console.log("[Verification] Raw phone input:", input.phone);
+      console.log("[Verification] Raw phone input:", JSON.stringify(input.phone));
+      console.log("[Verification] Phone char codes:", Array.from(input.phone).map(c => c.charCodeAt(0)));
       const e164 = formatE164(input.phone);
-      console.log("[Verification] Sending SMS to:", e164);
+      console.log("[Verification] Sending SMS to:", JSON.stringify(e164));
 
       const result = await callTwilioVerifyAPI("/Verifications", {
         To: e164,
@@ -108,9 +119,9 @@ export const verificationRouter = createTRPCRouter({
     }),
 
   verifySmsCode: publicProcedure
-    .input(z.object({ phone: z.string().min(10), code: z.string().length(6) }))
+    .input(z.object({ phone: z.string().min(8), code: z.string().length(6) }))
     .mutation(async ({ input }) => {
-      console.log("[Verification] Raw phone input:", input.phone);
+      console.log("[Verification] Raw phone input:", JSON.stringify(input.phone));
       const e164 = formatE164(input.phone);
       console.log("[Verification] Checking code for:", e164);
 

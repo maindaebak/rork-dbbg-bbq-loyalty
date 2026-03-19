@@ -18,11 +18,11 @@ import { useMembersStore } from "@/providers/members-store-provider";
 type LoginStep = "phone" | "code-sent" | "verified";
 
 function formatPhone(value: string): string {
-  if (!value.startsWith("+")) {
-    value = "+" + value;
+  const digits = value.replace(/[^\d]/g, "");
+  if (digits.length === 0) {
+    return "+";
   }
-  const cleaned = "+" + value.replace(/[^\d]/g, "").slice(0, 15);
-  return cleaned;
+  return "+" + digits.slice(0, 15);
 }
 
 export default function MemberLoginScreen() {
@@ -51,9 +51,9 @@ export default function MemberLoginScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const e164 = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
-      console.log("[Login] Sending SMS to:", e164);
-      await sendSmsMutation.mutateAsync({ phone: e164 });
+      const phoneToSend = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
+      console.log("[Login] Sending SMS to:", phoneToSend);
+      await sendSmsMutation.mutateAsync({ phone: phoneToSend });
       console.log("[Login] SMS sent successfully");
       setStep("code-sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
@@ -72,9 +72,9 @@ export default function MemberLoginScreen() {
     }
 
     try {
-      const e164 = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
-      console.log("[Login] Verifying code for:", e164);
-      const result = await verifySmsMutation.mutateAsync({ phone: e164, code });
+      const phoneToSend = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
+      console.log("[Login] Verifying code for:", phoneToSend);
+      const result = await verifySmsMutation.mutateAsync({ phone: phoneToSend, code });
 
       if (!result.success) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

@@ -38,11 +38,11 @@ const INITIAL_FORM: SignupFormState = {
 };
 
 function formatPhone(value: string): string {
-  if (!value.startsWith("+")) {
-    value = "+" + value;
+  const digits = value.replace(/[^\d]/g, "");
+  if (digits.length === 0) {
+    return "+";
   }
-  const cleaned = "+" + value.replace(/[^\d]/g, "").slice(0, 15);
-  return cleaned;
+  return "+" + digits.slice(0, 15);
 }
 
 function isValidBirthMonth(value: string): boolean {
@@ -103,9 +103,9 @@ export default function MemberSignupScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const e164 = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
-      console.log("[Signup] Sending SMS to:", e164);
-      await sendSmsMutation.mutateAsync({ phone: e164 });
+      const phoneToSend = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
+      console.log("[Signup] Sending SMS to:", phoneToSend);
+      await sendSmsMutation.mutateAsync({ phone: phoneToSend });
       console.log("[Signup] SMS sent successfully");
       setVerificationStatus("sent");
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
@@ -125,10 +125,10 @@ export default function MemberSignupScreen() {
     }
 
     try {
-      const e164 = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
-      console.log("[Signup] Verifying code for:", e164);
+      const phoneToSend = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
+      console.log("[Signup] Verifying code for:", phoneToSend);
       const result = await verifySmsMutation.mutateAsync({
-        phone: e164,
+        phone: phoneToSend,
         code: form.code,
       });
 
