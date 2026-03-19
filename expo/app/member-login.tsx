@@ -59,13 +59,12 @@ export default function MemberLoginScreen() {
       Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.log("[Login] SMS send error:", msg);
-      console.log("[Login] tRPC URL:", process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
+      console.error("[Login] SMS send error:", msg);
+      console.error("[Login] tRPC URL:", process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const isUrlError = msg.includes("string") && msg.includes("pattern");
       Alert.alert(
         "Failed to send code",
-        isUrlError
+        msg.includes("Unable to reach") || msg.includes("pattern") || msg.includes("network") || msg.includes("Network")
           ? "Unable to connect to the server. Please check your internet connection and try again."
           : msg,
       );

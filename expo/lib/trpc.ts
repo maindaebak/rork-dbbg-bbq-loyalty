@@ -12,7 +12,7 @@ function getTrpcUrl(): string {
 
   if (!url) {
     console.error("[tRPC] EXPO_PUBLIC_RORK_API_BASE_URL is not set!");
-    return "";
+    throw new Error("Server URL is not configured. Please contact support.");
   }
 
   const base = url.endsWith("/") ? url.slice(0, -1) : url;
@@ -26,6 +26,18 @@ export const trpcClient = trpc.createClient({
     httpLink({
       url: getTrpcUrl(),
       transformer: superjson,
+      fetch: async (input, init) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+        console.log('[tRPC] Fetching:', url);
+        try {
+          const response = await fetch(input, init);
+          console.log('[tRPC] Response status:', response.status);
+          return response;
+        } catch (error) {
+          console.error('[tRPC] Network error:', error);
+          throw new Error('Unable to reach the server. Please check your connection and try again.');
+        }
+      },
     }),
   ],
 });
