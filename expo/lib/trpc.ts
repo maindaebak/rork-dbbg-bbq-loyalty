@@ -11,8 +11,8 @@ function getTrpcUrl(): string {
   console.log("[tRPC] Base URL:", JSON.stringify(url));
 
   if (!url) {
-    console.error("[tRPC] EXPO_PUBLIC_RORK_API_BASE_URL is not set!");
-    throw new Error("Server URL is not configured. Please contact support.");
+    console.warn("[tRPC] EXPO_PUBLIC_RORK_API_BASE_URL is not set, using fallback");
+    return "https://placeholder.invalid/api/trpc";
   }
 
   const base = url.endsWith("/") ? url.slice(0, -1) : url;
