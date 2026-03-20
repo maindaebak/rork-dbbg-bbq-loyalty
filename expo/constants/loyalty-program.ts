@@ -5,6 +5,7 @@ export interface LoyaltyTier {
   name: string;
   minPoints: number;
   accent: string;
+  bonusPoints: number;
 }
 
 export interface LoyaltyReward extends RewardItem {}
@@ -14,6 +15,7 @@ export interface LoyaltyProgramSettings {
   tiers: LoyaltyTier[];
   rewards: LoyaltyReward[];
   termsAndConditions: string;
+  tierBonusEnabled: boolean;
 }
 
 const DEFAULT_TERMS = `Terms and Conditions - Dae Bak Bon Ga Loyalty Program
@@ -56,20 +58,24 @@ export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
       name: "Ember",
       minPoints: 0,
       accent: "#F59E0B",
+      bonusPoints: 0,
     },
     {
       id: "sear",
       name: "Sear",
       minPoints: 600,
       accent: "#FB7185",
+      bonusPoints: 50,
     },
     {
       id: "dae-bak-vip",
       name: "Dae Bak VIP",
       minPoints: 1400,
       accent: "#F97316",
+      bonusPoints: 150,
     },
   ],
+  tierBonusEnabled: true,
   rewards: [
     {
       id: "banchan",

@@ -384,7 +384,10 @@ export default function AdminMembersScreen() {
           text: "Add",
           style: "default",
           onPress: () => {
-            const pointsAdded = addPoints(foundMember.id, dollars, settings.pointsPerDollar, note.trim() || "Staff transaction");
+            const pointsAdded = addPoints(foundMember.id, dollars, settings.pointsPerDollar, note.trim() || "Staff transaction", {
+              tiers: settings.tiers,
+              tierBonusEnabled: settings.tierBonusEnabled,
+            });
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert(
               "Points added",
@@ -401,7 +404,7 @@ export default function AdminMembersScreen() {
         },
       ],
     );
-  }, [addPoints, dollarAmount, foundMember, members, note, settings.pointsPerDollar]);
+  }, [addPoints, dollarAmount, foundMember, members, note, settings.pointsPerDollar, settings.tiers, settings.tierBonusEnabled]);
 
   const handleRemovePoints = useCallback(() => {
     if (!foundMember) return;

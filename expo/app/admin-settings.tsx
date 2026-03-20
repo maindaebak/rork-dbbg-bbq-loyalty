@@ -7,10 +7,11 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Sparkles,
   Trash2,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import {
   ActionButton,
@@ -35,12 +36,14 @@ export default function AdminSettingsScreen() {
   const [tiers, setTiers] = useState<LoyaltyTier[]>(settings.tiers);
   const [rewards, setRewards] = useState<LoyaltyReward[]>(settings.rewards);
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
+  const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
 
   useEffect(() => {
     setPointsPerDollar(String(settings.pointsPerDollar));
     setTiers(settings.tiers);
     setRewards(settings.rewards);
     setTermsText(settings.termsAndConditions ?? "");
+    setTierBonusEnabled(settings.tierBonusEnabled ?? true);
   }, [settings]);
 
   const handleSave = useCallback(() => {
@@ -54,12 +57,13 @@ export default function AdminSettingsScreen() {
       tiers,
       rewards,
       termsAndConditions: termsText,
+      tierBonusEnabled,
     };
     console.log("[AdminSettings] Saving settings", next);
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [pointsPerDollar, rewards, termsText, tiers, updateSettings]);
+  }, [pointsPerDollar, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -81,6 +85,7 @@ export default function AdminSettingsScreen() {
       prev.map((t, i) => {
         if (i !== index) return t;
         if (field === "minPoints") return { ...t, minPoints: parseInt(value, 10) || 0 };
+        if (field === "bonusPoints") return { ...t, bonusPoints: parseInt(value, 10) || 0 };
         return { ...t, [field]: value };
       }),
     );
@@ -90,7 +95,7 @@ export default function AdminSettingsScreen() {
     const color = TIER_COLORS[tiers.length % TIER_COLORS.length];
     setTiers((prev) => [
       ...prev,
-      { id: uid(), name: "", minPoints: 0, accent: color },
+      { id: uid(), name: "", minPoints: 0, accent: color, bonusPoints: 0 },
     ]);
   }, [tiers.length]);
 
@@ -183,6 +188,16 @@ export default function AdminSettingsScreen() {
                 testID={`admin-tier-min-${index}`}
                 value={String(tier.minPoints)}
               />
+              {tierBonusEnabled && (
+                <InputField
+                  label="Bonus points on reaching tier"
+                  keyboardType="numeric"
+                  onChangeText={(v) => updateTier(index, "bonusPoints", v.replace(/\D/g, ""))}
+                  placeholder="0"
+                  testID={`admin-tier-bonus-${index}`}
+                  value={String(tier.bonusPoints ?? 0)}
+                />
+              )}
             </View>
           ))}
           <Pressable
@@ -193,6 +208,46 @@ export default function AdminSettingsScreen() {
             <Plus color="#F7C58B" size={16} />
             <Text style={styles.addBtnText}>Add tier</Text>
           </Pressable>
+        </Panel>
+
+        <Panel testID="admin-tier-bonus-panel">
+          <SectionTitle
+            copy="Automatically award bonus points when members reach a new tier."
+            title="Tier bonus rewards"
+          />
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <View style={styles.toggleIconWrap}>
+                <Sparkles color={tierBonusEnabled ? "#F7C58B" : "#8E6D56"} size={18} />
+              </View>
+              <View style={styles.toggleTextWrap}>
+                <Text style={styles.toggleLabel}>Auto tier bonus</Text>
+                <Text style={styles.toggleCaption}>
+                  {tierBonusEnabled ? "Members get bonus points when they reach a new tier" : "Tier bonus rewards are disabled"}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={tierBonusEnabled}
+              onValueChange={setTierBonusEnabled}
+              trackColor={{ false: "rgba(142, 109, 86, 0.3)", true: "rgba(247, 197, 139, 0.4)" }}
+              thumbColor={tierBonusEnabled ? "#F7C58B" : "#8E6D56"}
+              testID="admin-tier-bonus-toggle"
+            />
+          </View>
+          {tierBonusEnabled && (
+            <View style={styles.bonusSummary}>
+              {tiers.map((tier) => (
+                <View key={tier.id} style={styles.bonusSummaryRow}>
+                  <View style={[styles.colorDot, { backgroundColor: tier.accent }]} />
+                  <Text style={styles.bonusSummaryName}>{tier.name || "Unnamed"}</Text>
+                  <Text style={styles.bonusSummaryPoints}>
+                    {tier.bonusPoints > 0 ? `+${tier.bonusPoints} pts` : "No bonus"}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </Panel>
 
         <Panel testID="admin-rewards-panel">
@@ -388,5 +443,66 @@ const styles = StyleSheet.create({
     minHeight: 200,
     padding: 14,
     ...(Platform.OS !== "web" ? { textAlignVertical: "top" as const } : {}),
+  },
+  toggleRow: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 14,
+  },
+  toggleInfo: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
+  },
+  toggleIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 12,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  toggleTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  toggleLabel: {
+    color: "#FFF7ED",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  toggleCaption: {
+    color: "#C8AA94",
+    fontSize: 12,
+  },
+  bonusSummary: {
+    backgroundColor: "rgba(255, 247, 237, 0.03)",
+    borderColor: "rgba(247, 197, 139, 0.08)",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  bonusSummaryRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  bonusSummaryName: {
+    color: "#F8E7D0",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+  },
+  bonusSummaryPoints: {
+    color: "#F7C58B",
+    fontSize: 13,
+    fontWeight: "800" as const,
   },
 });

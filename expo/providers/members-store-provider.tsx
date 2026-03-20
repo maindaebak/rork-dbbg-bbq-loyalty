@@ -3,6 +3,7 @@ import createContextHook from "@nkzw/create-context-hook";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { LoyaltyTier } from "@/constants/loyalty-program";
 import { supabase } from "@/lib/supabase";
 
 const MEMBERS_STORAGE_KEY = "dbbg-members-store";
@@ -244,11 +245,15 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       dollarAmount,
       pointsPerDollar,
       note,
+      tierBonusPoints,
+      tierBonusName,
     }: {
       memberId: string;
       dollarAmount: number;
       pointsPerDollar: number;
       note: string;
+      tierBonusPoints?: number;
+      tierBonusName?: string;
     }) => {
       const pointsToAdd = Math.round(dollarAmount * pointsPerDollar);
       const expiresAt = new Date();
@@ -270,7 +275,29 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       }
 
       const member = members.find((m) => m.id === memberId);
-      const newTotal = (member?.points ?? 0) + pointsToAdd;
+      let newTotal = (member?.points ?? 0) + pointsToAdd;
+
+      if (tierBonusPoints && tierBonusPoints > 0) {
+        const bonusExpiresAt = new Date();
+        bonusExpiresAt.setFullYear(bonusExpiresAt.getFullYear() + 1);
+
+        const { error: bonusError } = await supabase.from("points_history").insert({
+          member_id: memberId,
+          type: "earned",
+          amount: tierBonusPoints,
+          dollar_amount: 0,
+          added_by: "system",
+          note: `Tier bonus: Reached ${tierBonusName ?? "new tier"}`,
+          expires_at: bonusExpiresAt.toISOString(),
+        });
+
+        if (bonusError) {
+          console.error("[MembersStore] Tier bonus history error:", bonusError.message);
+        } else {
+          newTotal += tierBonusPoints;
+          console.log("[MembersStore] Awarded", tierBonusPoints, "tier bonus points for reaching", tierBonusName);
+        }
+      }
 
       const { error: updateError } = await supabase
         .from("members")
@@ -290,12 +317,45 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   });
 
   const addPoints = useCallback(
-    (memberId: string, dollarAmount: number, pointsPerDollar: number, note: string) => {
+    (
+      memberId: string,
+      dollarAmount: number,
+      pointsPerDollar: number,
+      note: string,
+      tierConfig?: { tiers: LoyaltyTier[]; tierBonusEnabled: boolean },
+    ) => {
       const pointsToAdd = Math.round(dollarAmount * pointsPerDollar);
+      let tierBonusPoints = 0;
+      let tierBonusName = "";
+
+      const member = members.find((m) => m.id === memberId);
+      if (member && tierConfig?.tierBonusEnabled && tierConfig.tiers.length > 0) {
+        const sortedTiers = [...tierConfig.tiers].sort((a, b) => a.minPoints - b.minPoints);
+        const oldPoints = member.points;
+        const newPoints = oldPoints + pointsToAdd;
+
+        const oldTier = sortedTiers.reduce<LoyaltyTier | null>((active, tier) => {
+          if (oldPoints >= tier.minPoints) return tier;
+          return active;
+        }, null);
+
+        const newTier = sortedTiers.reduce<LoyaltyTier | null>((active, tier) => {
+          if (newPoints >= tier.minPoints) return tier;
+          return active;
+        }, null);
+
+        if (newTier && newTier.id !== oldTier?.id && (newTier.bonusPoints ?? 0) > 0) {
+          tierBonusPoints = newTier.bonusPoints ?? 0;
+          tierBonusName = newTier.name;
+          console.log("[MembersStore] Tier upgrade detected:", oldTier?.name ?? "none", "->", newTier.name, "bonus:", tierBonusPoints);
+        }
+      }
+
       setMembers((prev) =>
         prev.map((m) => {
           if (m.id === memberId) {
-            const entry: PointsEntry = {
+            const entries: PointsEntry[] = [];
+            entries.push({
               id: `pts-${Date.now()}`,
               type: "earned",
               amount: pointsToAdd,
@@ -304,20 +364,39 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
               addedAt: new Date().toISOString(),
               expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
               note,
-            };
+            });
+            if (tierBonusPoints > 0) {
+              entries.push({
+                id: `pts-bonus-${Date.now()}`,
+                type: "earned",
+                amount: tierBonusPoints,
+                dollarAmount: 0,
+                addedBy: "system",
+                addedAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                note: `Tier bonus: Reached ${tierBonusName}`,
+              });
+            }
             return {
               ...m,
-              points: m.points + pointsToAdd,
-              pointsHistory: [entry, ...m.pointsHistory],
+              points: m.points + pointsToAdd + tierBonusPoints,
+              pointsHistory: [...entries, ...m.pointsHistory],
             };
           }
           return m;
         })
       );
-      addPointsMutation.mutate({ memberId, dollarAmount, pointsPerDollar, note });
-      return pointsToAdd;
+      addPointsMutation.mutate({
+        memberId,
+        dollarAmount,
+        pointsPerDollar,
+        note,
+        tierBonusPoints: tierBonusPoints > 0 ? tierBonusPoints : undefined,
+        tierBonusName: tierBonusName || undefined,
+      });
+      return pointsToAdd + tierBonusPoints;
     },
-    [addPointsMutation],
+    [addPointsMutation, members],
   );
 
   const removePointsMutation = useMutation({
