@@ -179,10 +179,10 @@ export default function MemberDashboardScreen() {
                   {
                     text: "Log out",
                     style: "destructive",
-                    onPress: () => {
+                    onPress: async () => {
                       console.log("[Dashboard] Logging out");
                       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                      logout();
+                      await logout();
                       router.replace("/");
                     },
                   },

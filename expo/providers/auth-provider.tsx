@@ -125,7 +125,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       updateProfileMutation.mutate(updates),
     [updateProfileMutation],
   );
-  const logout = useCallback(() => logoutMutation.mutate(), [logoutMutation]);
+  const logout = useCallback(() => logoutMutation.mutateAsync(), [logoutMutation]);
   const deleteAccount = useCallback(() => deleteAccountMutation.mutate(), [deleteAccountMutation]);
 
   return useMemo(
