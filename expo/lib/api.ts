@@ -80,33 +80,34 @@ export async function adminLogin(email: string, password: string): Promise<Admin
   try {
     console.log("[API] Admin login attempt for:", email);
 
-    const envEmail = (process.env.EXPO_PUBLIC_ADMIN_EMAIL ?? "").trim();
-    const envPassword = (process.env.EXPO_PUBLIC_ADMIN_PASSWORD ?? "").trim();
-
-    console.log("[API] Admin env email configured:", envEmail ? "yes (" + envEmail.substring(0, 3) + "...)" : "NO");
-    console.log("[API] Admin env password configured:", envPassword ? "yes" : "NO");
-
-    if (!envEmail || !envPassword) {
-      console.error("[API] Admin credentials not configured in env vars");
-      return { success: false, error: "Admin credentials not configured. Please set EXPO_PUBLIC_ADMIN_EMAIL and EXPO_PUBLIC_ADMIN_PASSWORD." };
+    if (!isSupabaseConfigured()) {
+      console.error("[API] Supabase is not configured - cannot login admin");
+      return { success: false, error: "Authentication service is not configured. Please contact support." };
     }
 
-    const inputEmail = email.trim().toLowerCase();
-    const configEmail = envEmail.toLowerCase();
-    const passwordMatch = password === envPassword;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
-    console.log("[API] Email match:", inputEmail === configEmail, "| Password match:", passwordMatch);
-
-    if (inputEmail === configEmail && passwordMatch) {
-      console.log("[API] Admin credentials matched");
-      return { success: true, email: inputEmail };
+    if (error) {
+      console.error("[API] Supabase admin login error:", error.message);
+      return { success: false, error: error.message };
     }
 
-    console.log("[API] Admin credentials did not match");
-    return { success: false, error: "Invalid email or password. Please try again." };
+    if (!data.user) {
+      console.error("[API] Supabase login returned no user");
+      return { success: false, error: "Login failed. Please try again." };
+    }
+
+    console.log("[API] Admin logged in via Supabase, user:", data.user.id);
+    return { success: true, email: data.user.email ?? email.trim() };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[API] adminLogin exception:", msg);
+    if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
+      return { success: false, error: "Network error. Please check your internet connection and try again." };
+    }
     return { success: false, error: msg };
   }
 }
