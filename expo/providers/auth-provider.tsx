@@ -3,6 +3,8 @@ import createContextHook from "@nkzw/create-context-hook";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { supabase } from "@/lib/supabase";
+
 const AUTH_STORAGE_KEY = "member-auth-session";
 
 export interface MemberProfile {
@@ -88,6 +90,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      await supabase.auth.signOut().catch((err) => {
+        console.log("[Auth] Supabase signOut error (non-critical):", err);
+      });
       console.log("[Auth] Session cleared");
     },
     onSuccess: () => {
@@ -99,6 +104,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      await supabase.auth.signOut().catch((err) => {
+        console.log("[Auth] Supabase signOut error (non-critical):", err);
+      });
       console.log("[Auth] Account deleted");
     },
     onSuccess: () => {

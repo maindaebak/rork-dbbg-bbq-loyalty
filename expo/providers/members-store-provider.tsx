@@ -3,6 +3,8 @@ import createContextHook from "@nkzw/create-context-hook";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { supabase } from "@/lib/supabase";
+
 const MEMBERS_STORAGE_KEY = "dbbg-members-store";
 
 export interface StoredMember {
@@ -29,26 +31,103 @@ export interface PointsEntry {
   note: string;
 }
 
-async function loadMembers(): Promise<StoredMember[]> {
-  const raw = await AsyncStorage.getItem(MEMBERS_STORAGE_KEY);
-  if (!raw) {
-    console.log("[MembersStore] No stored members found");
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw) as StoredMember[];
-    console.log("[MembersStore] Loaded", parsed.length, "members");
-    return parsed;
-  } catch {
-    console.log("[MembersStore] Failed to parse members data");
-    return [];
-  }
+interface DbMember {
+  id: string;
+  full_name: string;
+  phone: string;
+  birthdate: string | null;
+  birth_year: string | null;
+  points: number;
+  created_at: string;
+  auth_id: string | null;
 }
 
-async function saveMembers(members: StoredMember[]): Promise<StoredMember[]> {
-  await AsyncStorage.setItem(MEMBERS_STORAGE_KEY, JSON.stringify(members));
-  console.log("[MembersStore] Saved", members.length, "members");
-  return members;
+interface DbPointsEntry {
+  id: string;
+  member_id: string;
+  type: string;
+  amount: number;
+  dollar_amount: number;
+  added_by: string;
+  note: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+function dbMemberToStored(member: DbMember, history: DbPointsEntry[]): StoredMember {
+  return {
+    id: member.id,
+    fullName: member.full_name,
+    phone: member.phone,
+    birthdate: member.birthdate ?? "",
+    birthYear: member.birth_year ?? "",
+    createdAt: member.created_at,
+    points: member.points,
+    pointsHistory: history.map((entry) => ({
+      id: entry.id,
+      type: entry.type as PointsEntryType,
+      amount: entry.amount,
+      dollarAmount: entry.dollar_amount,
+      addedBy: entry.added_by,
+      addedAt: entry.created_at,
+      expiresAt: entry.expires_at ?? "",
+      note: entry.note ?? "",
+    })),
+  };
+}
+
+async function fetchMembersFromSupabase(): Promise<StoredMember[]> {
+  try {
+    console.log("[MembersStore] Fetching members from Supabase...");
+    const { data: dbMembers, error: membersError } = await supabase
+      .from("members")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (membersError) {
+      console.error("[MembersStore] Supabase members error:", membersError.message);
+      throw membersError;
+    }
+
+    if (!dbMembers || dbMembers.length === 0) {
+      console.log("[MembersStore] No members found in Supabase");
+      return [];
+    }
+
+    const memberIds = dbMembers.map((m: DbMember) => m.id);
+    const { data: dbHistory, error: historyError } = await supabase
+      .from("points_history")
+      .select("*")
+      .in("member_id", memberIds)
+      .order("created_at", { ascending: false });
+
+    if (historyError) {
+      console.error("[MembersStore] Supabase history error:", historyError.message);
+    }
+
+    const historyByMember = new Map<string, DbPointsEntry[]>();
+    for (const entry of (dbHistory ?? []) as DbPointsEntry[]) {
+      const existing = historyByMember.get(entry.member_id) ?? [];
+      existing.push(entry);
+      historyByMember.set(entry.member_id, existing);
+    }
+
+    const members = (dbMembers as DbMember[]).map((m) =>
+      dbMemberToStored(m, historyByMember.get(m.id) ?? [])
+    );
+
+    console.log("[MembersStore] Loaded", members.length, "members from Supabase");
+    return members;
+  } catch (err) {
+    console.error("[MembersStore] Failed to fetch from Supabase, falling back to local:", err);
+    const raw = await AsyncStorage.getItem(MEMBERS_STORAGE_KEY);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as StoredMember[];
+    } catch {
+      return [];
+    }
+  }
 }
 
 export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
@@ -57,7 +136,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
 
   const membersQuery = useQuery({
     queryKey: ["members-store"],
-    queryFn: loadMembers,
+    queryFn: fetchMembersFromSupabase,
   });
 
   useEffect(() => {
@@ -66,32 +145,63 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     }
   }, [membersQuery.data]);
 
-  const saveMutation = useMutation({
-    mutationFn: saveMembers,
-    onSuccess: (saved) => {
-      setMembers(saved);
-      queryClient.setQueryData(["members-store"], saved);
+  const registerMemberMutation = useMutation({
+    mutationFn: async (member: Omit<StoredMember, "points" | "pointsHistory">) => {
+      console.log("[MembersStore] Registering member in Supabase:", member.fullName);
+
+      const { data: existing } = await supabase
+        .from("members")
+        .select("*")
+        .eq("phone", member.phone)
+        .maybeSingle();
+
+      if (existing) {
+        console.log("[MembersStore] Member already exists with phone", member.phone);
+        return dbMemberToStored(existing as DbMember, []);
+      }
+
+      const { data: authUser } = await supabase.auth.getUser();
+
+      const { data: inserted, error } = await supabase
+        .from("members")
+        .insert({
+          full_name: member.fullName,
+          phone: member.phone,
+          birthdate: member.birthdate || null,
+          birth_year: member.birthYear || null,
+          auth_id: authUser?.user?.id ?? null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("[MembersStore] Insert error:", error.message);
+        throw new Error(error.message);
+      }
+
+      console.log("[MembersStore] Registered member:", inserted.id);
+      return dbMemberToStored(inserted as DbMember, []);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["members-store"] });
     },
   });
 
   const registerMember = useCallback(
     (member: Omit<StoredMember, "points" | "pointsHistory">) => {
-      const existing = members.find((m) => m.phone === member.phone);
+      const existing = members.find(
+        (m) => m.phone.replace(/\D/g, "") === member.phone.replace(/\D/g, "")
+      );
       if (existing) {
-        console.log("[MembersStore] Member already exists with phone", member.phone);
+        console.log("[MembersStore] Member already exists locally");
         return existing;
       }
-      const newMember: StoredMember = {
-        ...member,
-        points: 0,
-        pointsHistory: [],
-      };
-      const updated = [...members, newMember];
-      saveMutation.mutate(updated);
-      console.log("[MembersStore] Registered new member", member.fullName);
-      return newMember;
+      registerMemberMutation.mutate(member);
+      const optimistic: StoredMember = { ...member, points: 0, pointsHistory: [] };
+      setMembers((prev) => [...prev, optimistic]);
+      return optimistic;
     },
-    [members, saveMutation],
+    [members, registerMemberMutation],
   );
 
   const findMemberByPhone = useCallback(
@@ -128,105 +238,233 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     [members],
   );
 
-  const addPoints = useCallback(
-    (memberId: string, dollarAmount: number, pointsPerDollar: number, note: string) => {
+  const addPointsMutation = useMutation({
+    mutationFn: async ({
+      memberId,
+      dollarAmount,
+      pointsPerDollar,
+      note,
+    }: {
+      memberId: string;
+      dollarAmount: number;
+      pointsPerDollar: number;
+      note: string;
+    }) => {
       const pointsToAdd = Math.round(dollarAmount * pointsPerDollar);
-      const addedAt = new Date();
-      const expiresAt = new Date(addedAt);
+      const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      const entry: PointsEntry = {
-        id: `pts-${Date.now()}`,
+
+      const { error: historyError } = await supabase.from("points_history").insert({
+        member_id: memberId,
         type: "earned",
         amount: pointsToAdd,
-        dollarAmount,
-        addedBy: "admin",
-        addedAt: addedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
+        dollar_amount: dollarAmount,
+        added_by: "admin",
         note,
-      };
-      const updated = members.map((m) => {
-        if (m.id === memberId) {
-          const newHistory = [entry, ...m.pointsHistory];
-          return {
-            ...m,
-            points: m.points + pointsToAdd,
-            pointsHistory: newHistory,
-          };
-        }
-        return m;
+        expires_at: expiresAt.toISOString(),
       });
-      saveMutation.mutate(updated);
+
+      if (historyError) {
+        console.error("[MembersStore] Add points history error:", historyError.message);
+        throw new Error(historyError.message);
+      }
+
+      const member = members.find((m) => m.id === memberId);
+      const newTotal = (member?.points ?? 0) + pointsToAdd;
+
+      const { error: updateError } = await supabase
+        .from("members")
+        .update({ points: newTotal })
+        .eq("id", memberId);
+
+      if (updateError) {
+        console.error("[MembersStore] Update points error:", updateError.message);
+      }
+
       console.log("[MembersStore] Added", pointsToAdd, "points to member", memberId);
       return pointsToAdd;
     },
-    [members, saveMutation],
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["members-store"] });
+    },
+  });
+
+  const addPoints = useCallback(
+    (memberId: string, dollarAmount: number, pointsPerDollar: number, note: string) => {
+      const pointsToAdd = Math.round(dollarAmount * pointsPerDollar);
+      setMembers((prev) =>
+        prev.map((m) => {
+          if (m.id === memberId) {
+            const entry: PointsEntry = {
+              id: `pts-${Date.now()}`,
+              type: "earned",
+              amount: pointsToAdd,
+              dollarAmount,
+              addedBy: "admin",
+              addedAt: new Date().toISOString(),
+              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+              note,
+            };
+            return {
+              ...m,
+              points: m.points + pointsToAdd,
+              pointsHistory: [entry, ...m.pointsHistory],
+            };
+          }
+          return m;
+        })
+      );
+      addPointsMutation.mutate({ memberId, dollarAmount, pointsPerDollar, note });
+      return pointsToAdd;
+    },
+    [addPointsMutation],
   );
 
-  const removePoints = useCallback(
-    (memberId: string, pointsAmount: number, note: string) => {
-      const addedAt = new Date();
-      const entry: PointsEntry = {
-        id: `pts-${Date.now()}`,
+  const removePointsMutation = useMutation({
+    mutationFn: async ({
+      memberId,
+      pointsAmount,
+      note,
+    }: {
+      memberId: string;
+      pointsAmount: number;
+      note: string;
+    }) => {
+      const { error: historyError } = await supabase.from("points_history").insert({
+        member_id: memberId,
         type: "redeemed",
         amount: pointsAmount,
-        dollarAmount: 0,
-        addedBy: "admin",
-        addedAt: addedAt.toISOString(),
-        expiresAt: "",
+        dollar_amount: 0,
+        added_by: "admin",
         note,
-      };
-      const updated = members.map((m) => {
-        if (m.id === memberId) {
-          const newHistory = [entry, ...m.pointsHistory];
-          return {
-            ...m,
-            points: Math.max(0, m.points - pointsAmount),
-            pointsHistory: newHistory,
-          };
-        }
-        return m;
       });
-      saveMutation.mutate(updated);
+
+      if (historyError) {
+        console.error("[MembersStore] Remove points history error:", historyError.message);
+        throw new Error(historyError.message);
+      }
+
+      const member = members.find((m) => m.id === memberId);
+      const newTotal = Math.max(0, (member?.points ?? 0) - pointsAmount);
+
+      const { error: updateError } = await supabase
+        .from("members")
+        .update({ points: newTotal })
+        .eq("id", memberId);
+
+      if (updateError) {
+        console.error("[MembersStore] Update points error:", updateError.message);
+      }
+
       console.log("[MembersStore] Removed", pointsAmount, "points from member", memberId);
       return pointsAmount;
     },
-    [members, saveMutation],
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["members-store"] });
+    },
+  });
+
+  const removePoints = useCallback(
+    (memberId: string, pointsAmount: number, note: string) => {
+      setMembers((prev) =>
+        prev.map((m) => {
+          if (m.id === memberId) {
+            const entry: PointsEntry = {
+              id: `pts-${Date.now()}`,
+              type: "redeemed",
+              amount: pointsAmount,
+              dollarAmount: 0,
+              addedBy: "admin",
+              addedAt: new Date().toISOString(),
+              expiresAt: "",
+              note,
+            };
+            return {
+              ...m,
+              points: Math.max(0, m.points - pointsAmount),
+              pointsHistory: [entry, ...m.pointsHistory],
+            };
+          }
+          return m;
+        })
+      );
+      removePointsMutation.mutate({ memberId, pointsAmount, note });
+      return pointsAmount;
+    },
+    [removePointsMutation],
   );
+
+  const updateMemberMutation = useMutation({
+    mutationFn: async ({
+      memberId,
+      updates,
+    }: {
+      memberId: string;
+      updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear">>;
+    }) => {
+      const dbUpdates: Record<string, string | null> = {};
+      if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
+      if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+      if (updates.birthdate !== undefined) dbUpdates.birthdate = updates.birthdate || null;
+      if (updates.birthYear !== undefined) dbUpdates.birth_year = updates.birthYear || null;
+
+      const { error } = await supabase
+        .from("members")
+        .update(dbUpdates)
+        .eq("id", memberId);
+
+      if (error) {
+        console.error("[MembersStore] Update member error:", error.message);
+        throw new Error(error.message);
+      }
+
+      console.log("[MembersStore] Updated member", memberId, updates);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["members-store"] });
+    },
+  });
 
   const updateMemberContact = useCallback(
     (memberId: string, updates: Partial<Pick<StoredMember, "phone">>) => {
-      const updated = members.map((m) => {
-        if (m.id === memberId) {
-          return { ...m, ...updates };
-        }
-        return m;
-      });
-      saveMutation.mutate(updated);
+      setMembers((prev) =>
+        prev.map((m) => (m.id === memberId ? { ...m, ...updates } : m))
+      );
+      updateMemberMutation.mutate({ memberId, updates });
     },
-    [members, saveMutation],
+    [updateMemberMutation],
   );
 
   const updateMemberProfile = useCallback(
     (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear">>) => {
-      const updated = members.map((m) => {
-        if (m.id === memberId) {
-          return { ...m, ...updates };
-        }
-        return m;
-      });
-      saveMutation.mutate(updated);
-      console.log("[MembersStore] Updated profile for member", memberId, updates);
+      setMembers((prev) =>
+        prev.map((m) => (m.id === memberId ? { ...m, ...updates } : m))
+      );
+      updateMemberMutation.mutate({ memberId, updates });
     },
-    [members, saveMutation],
+    [updateMemberMutation],
   );
+
+  const deleteMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase.from("members").delete().eq("id", memberId);
+      if (error) {
+        console.error("[MembersStore] Delete member error:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("[MembersStore] Deleted member", memberId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["members-store"] });
+    },
+  });
 
   const deleteMember = useCallback(
     (memberId: string) => {
-      const updated = members.filter((m) => m.id !== memberId);
-      saveMutation.mutate(updated);
-      console.log("[MembersStore] Deleted member", memberId);
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      deleteMemberMutation.mutate(memberId);
     },
-    [members, saveMutation],
+    [deleteMemberMutation],
   );
 
   return useMemo(

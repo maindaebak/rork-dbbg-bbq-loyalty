@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { adminLogin as apiAdminLogin } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 const ADMIN_AUTH_KEY = "dbbg-admin-session";
 
@@ -49,7 +50,7 @@ export const [AdminAuthProvider, useAdminAuth] = createContextHook(() => {
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      console.log("[AdminAuth] Attempting login via API for", email);
+      console.log("[AdminAuth] Attempting login via Supabase for", email);
       const result = await apiAdminLogin(email, password);
 
       if (!result.success) {
@@ -58,7 +59,7 @@ export const [AdminAuthProvider, useAdminAuth] = createContextHook(() => {
 
       const next: AdminAuthState = { isLoggedIn: true, email: result.email ?? email };
       await AsyncStorage.setItem(ADMIN_AUTH_KEY, JSON.stringify(next));
-      console.log("[AdminAuth] Admin logged in via server");
+      console.log("[AdminAuth] Admin logged in via Supabase");
       return next;
     },
     onSuccess: (next) => {
@@ -70,6 +71,9 @@ export const [AdminAuthProvider, useAdminAuth] = createContextHook(() => {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await AsyncStorage.removeItem(ADMIN_AUTH_KEY);
+      await supabase.auth.signOut().catch((err) => {
+        console.log("[AdminAuth] Supabase signOut error (non-critical):", err);
+      });
       console.log("[AdminAuth] Admin session cleared");
     },
     onSuccess: () => {

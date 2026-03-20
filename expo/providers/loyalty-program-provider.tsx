@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   DEFAULT_LOYALTY_PROGRAM_SETTINGS,
@@ -9,6 +9,7 @@ import {
   type LoyaltyReward,
   type LoyaltyTier,
 } from "@/constants/loyalty-program";
+import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "loyalty-program-settings";
 
@@ -34,21 +35,55 @@ function sanitizeSettings(input: LoyaltyProgramSettings): LoyaltyProgramSettings
   };
 }
 
-async function fetchStoredSettings(): Promise<LoyaltyProgramSettings> {
-  const stored = await AsyncStorage.getItem(STORAGE_KEY);
+interface DbLoyaltySettings {
+  id: number;
+  points_per_dollar: number;
+  tiers: LoyaltyTier[] | null;
+  rewards: LoyaltyReward[] | null;
+  terms_and_conditions: string | null;
+  updated_at: string;
+}
 
-  if (!stored) {
-    console.log("No stored loyalty settings found, using defaults");
-    return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
-  }
+function dbSettingsToLocal(db: DbLoyaltySettings): LoyaltyProgramSettings {
+  return {
+    pointsPerDollar: db.points_per_dollar,
+    tiers: (db.tiers ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tiers) as LoyaltyTier[],
+    rewards: (db.rewards ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.rewards) as LoyaltyReward[],
+    termsAndConditions: db.terms_and_conditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
+  };
+}
 
+async function fetchSettings(): Promise<LoyaltyProgramSettings> {
   try {
-    const parsed = JSON.parse(stored) as LoyaltyProgramSettings;
-    console.log("Loaded loyalty settings from AsyncStorage");
-    return sanitizeSettings(parsed);
-  } catch (error) {
-    console.log("Failed to parse loyalty settings, falling back to defaults", error);
+    console.log("[LoyaltyProgram] Fetching settings from Supabase...");
+    const { data, error } = await supabase
+      .from("loyalty_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[LoyaltyProgram] Supabase error:", error.message);
+      throw error;
+    }
+
+    if (data) {
+      const settings = sanitizeSettings(dbSettingsToLocal(data as DbLoyaltySettings));
+      console.log("[LoyaltyProgram] Loaded settings from Supabase");
+      return settings;
+    }
+
+    console.log("[LoyaltyProgram] No settings in Supabase, using defaults");
     return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
+  } catch (err) {
+    console.error("[LoyaltyProgram] Failed to fetch from Supabase, falling back to local:", err);
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!stored) return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
+    try {
+      return sanitizeSettings(JSON.parse(stored) as LoyaltyProgramSettings);
+    } catch {
+      return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
+    }
   }
 }
 
@@ -57,14 +92,33 @@ export const [LoyaltyProgramProvider, useLoyaltyProgram] = createContextHook(() 
 
   const settingsQuery = useQuery({
     queryKey: ["loyalty-program-settings"],
-    queryFn: fetchStoredSettings,
+    queryFn: fetchSettings,
   });
 
   const saveSettingsMutation = useMutation({
     mutationFn: async (nextSettings: LoyaltyProgramSettings) => {
       const sanitized = sanitizeSettings(nextSettings);
-      console.log("Saving loyalty settings", sanitized);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      console.log("[LoyaltyProgram] Saving settings to Supabase...");
+
+      const { error } = await supabase
+        .from("loyalty_settings")
+        .upsert({
+          id: 1,
+          points_per_dollar: sanitized.pointsPerDollar,
+          tiers: sanitized.tiers as unknown as Record<string, unknown>[],
+          rewards: sanitized.rewards as unknown as Record<string, unknown>[],
+          terms_and_conditions: sanitized.termsAndConditions,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error("[LoyaltyProgram] Supabase save error:", error.message);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+        console.log("[LoyaltyProgram] Saved to local storage as fallback");
+      } else {
+        console.log("[LoyaltyProgram] Saved to Supabase");
+      }
+
       return sanitized;
     },
     onSuccess: (savedSettings: LoyaltyProgramSettings) => {
