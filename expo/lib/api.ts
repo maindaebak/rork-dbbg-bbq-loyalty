@@ -18,23 +18,57 @@ interface AdminLoginResponse {
   error?: string;
 }
 
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID ?? "";
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN ?? "";
+const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID ?? "";
+
+function isTwilioConfigured(): boolean {
+  const configured = Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_VERIFY_SERVICE_SID);
+  console.log("[Twilio] Configured:", configured, "SID:", TWILIO_ACCOUNT_SID ? TWILIO_ACCOUNT_SID.substring(0, 8) + "..." : "EMPTY", "Service:", TWILIO_VERIFY_SERVICE_SID ? TWILIO_VERIFY_SERVICE_SID.substring(0, 8) + "..." : "EMPTY");
+  return configured;
+}
+
+function getTwilioAuthHeader(): string {
+  const credentials = `${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`;
+  return "Basic " + btoa(credentials);
+}
+
 export async function sendSmsCode(phone: string): Promise<SendSmsResponse> {
   try {
-    if (!isSupabaseConfigured()) {
-      console.error("[API] Supabase is not configured - cannot send SMS");
+    if (!isTwilioConfigured()) {
+      console.error("[API] Twilio is not configured - cannot send SMS");
       return { success: false, error: "SMS service is not configured. Please contact support." };
     }
 
-    console.log("[API] Sending OTP to:", phone);
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+    const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
+    console.log("[API] Sending Twilio Verify SMS to:", formattedPhone);
 
-    if (error) {
-      console.error("[API] Supabase OTP error:", error.message);
-      return { success: false, error: error.message };
+    const url = `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SERVICE_SID}/Verifications`;
+    const body = new URLSearchParams({
+      To: formattedPhone,
+      Channel: "sms",
+    });
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": getTwilioAuthHeader(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    const data = await response.json();
+    console.log("[API] Twilio Verify response status:", response.status, "sid:", data.sid ?? "none");
+
+    if (!response.ok) {
+      const errorMsg = data.message ?? "Failed to send verification code.";
+      console.error("[API] Twilio Verify error:", errorMsg);
+      return { success: false, error: errorMsg };
     }
 
-    console.log("[API] OTP sent successfully");
-    return { success: true, status: "pending" };
+    console.log("[API] Twilio Verify SMS sent successfully, status:", data.status);
+    return { success: true, status: data.status ?? "pending" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[API] sendSmsCode exception:", msg);
@@ -55,7 +89,7 @@ export async function signUpAndSendCode(
       return { success: false, error: "Authentication service is not configured. Please contact support." };
     }
 
-    console.log("[API] Creating account with phone+password and sending OTP to:", phone);
+    console.log("[API] Creating account with phone+password for:", phone);
     const { data, error } = await supabase.auth.signUp({
       phone,
       password,
@@ -63,20 +97,17 @@ export async function signUpAndSendCode(
 
     if (error) {
       console.error("[API] Supabase signUp error:", error.message);
-      if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("already exists")) {
-        console.log("[API] User already exists, sending OTP for existing user");
-        const { error: otpError } = await supabase.auth.signInWithOtp({ phone });
-        if (otpError) {
-          console.error("[API] Fallback OTP error:", otpError.message);
-          return { success: false, error: otpError.message };
-        }
-        return { success: true, status: "pending" };
+      if (!error.message.toLowerCase().includes("already registered") && !error.message.toLowerCase().includes("already exists")) {
+        return { success: false, error: error.message };
       }
-      return { success: false, error: error.message };
+      console.log("[API] User already exists, continuing to send verification code");
+    } else {
+      console.log("[API] Account created. User:", data.user?.id);
     }
 
-    console.log("[API] Account created, OTP sent. User:", data.user?.id);
-    return { success: true, status: "pending" };
+    console.log("[API] Now sending Twilio Verify SMS for signup...");
+    const smsResult = await sendSmsCode(phone);
+    return smsResult;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[API] signUpAndSendCode exception:", msg);
@@ -89,25 +120,45 @@ export async function signUpAndSendCode(
 
 export async function verifySmsCode(phone: string, code: string): Promise<VerifySmsResponse> {
   try {
-    if (!isSupabaseConfigured()) {
-      console.error("[API] Supabase is not configured - cannot verify SMS");
+    if (!isTwilioConfigured()) {
+      console.error("[API] Twilio is not configured - cannot verify SMS");
       return { success: false, error: "SMS service is not configured. Please contact support." };
     }
 
-    console.log("[API] Verifying OTP for:", phone);
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token: code,
-      type: "sms",
+    const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
+    console.log("[API] Verifying Twilio code for:", formattedPhone);
+
+    const url = `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SERVICE_SID}/VerificationCheck`;
+    const body = new URLSearchParams({
+      To: formattedPhone,
+      Code: code,
     });
 
-    if (error) {
-      console.error("[API] Supabase verify error:", error.message);
-      return { success: false, error: error.message };
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": getTwilioAuthHeader(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    const data = await response.json();
+    console.log("[API] Twilio VerificationCheck response status:", response.status, "verification status:", data.status);
+
+    if (!response.ok) {
+      const errorMsg = data.message ?? "Verification failed.";
+      console.error("[API] Twilio verify error:", errorMsg);
+      return { success: false, error: errorMsg };
     }
 
-    console.log("[API] OTP verified successfully, user:", data.user?.id);
-    return { success: true, status: "approved" };
+    if (data.status === "approved") {
+      console.log("[API] Twilio verification approved");
+      return { success: true, status: "approved" };
+    }
+
+    console.log("[API] Twilio verification not approved, status:", data.status);
+    return { success: false, error: "Invalid verification code. Please try again." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[API] verifySmsCode exception:", msg);
