@@ -344,10 +344,20 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
           return active;
         }, null);
 
-        if (newTier && newTier.id !== oldTier?.id && (newTier.bonusPoints ?? 0) > 0) {
+        const isUpgrade = newTier && (
+          !oldTier || newTier.minPoints > oldTier.minPoints
+        );
+
+        const alreadyReceivedBonus = newTier ? member.pointsHistory.some(
+          (entry) => entry.addedBy === "system" && entry.note === `Tier bonus: Reached ${newTier.name}`
+        ) : false;
+
+        if (isUpgrade && newTier && !alreadyReceivedBonus && (newTier.bonusPoints ?? 0) > 0) {
           tierBonusPoints = newTier.bonusPoints ?? 0;
           tierBonusName = newTier.name;
           console.log("[MembersStore] Tier upgrade detected:", oldTier?.name ?? "none", "->", newTier.name, "bonus:", tierBonusPoints);
+        } else if (newTier && alreadyReceivedBonus) {
+          console.log("[MembersStore] Tier bonus for", newTier.name, "already received, skipping");
         }
       }
 
