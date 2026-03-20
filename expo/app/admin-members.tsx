@@ -1079,6 +1079,11 @@ export default function AdminMembersScreen() {
                       </View>
                       <Text style={styles.historyNote}>{entry.note}</Text>
                       <Text style={styles.historyDate}>{formatDateTime(entry.addedAt)}</Text>
+                      {entry.type === "earned" && entry.expiresAt && (
+                        <Text style={styles.historyExpiry}>
+                          Expires: {formatDate(entry.expiresAt)}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -1104,6 +1109,11 @@ const styles = StyleSheet.create({
   historyDate: {
     color: "#8E6D56",
     fontSize: 12,
+  },
+  historyExpiry: {
+    color: "#F59E0B",
+    fontSize: 11,
+    fontWeight: "600" as const,
   },
   historyDot: {
     backgroundColor: "#22C55E",
