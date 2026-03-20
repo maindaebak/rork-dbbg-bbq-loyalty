@@ -79,38 +79,29 @@ export async function sendSmsCode(phone: string): Promise<SendSmsResponse> {
   }
 }
 
-export async function signUpAndSendCode(
-  phone: string,
-  password: string,
-): Promise<SendSmsResponse> {
+export async function signUpWithPhone(phone: string): Promise<SendSmsResponse> {
   try {
     if (!isSupabaseConfigured()) {
       console.error("[API] Supabase is not configured - cannot sign up");
       return { success: false, error: "Authentication service is not configured. Please contact support." };
     }
 
-    console.log("[API] Creating account with phone+password for:", phone);
-    const { data, error } = await supabase.auth.signUp({
-      phone,
-      password,
+    const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
+    console.log("[API] Signing up with Supabase phone OTP for:", formattedPhone);
+    const { data, error } = await supabase.auth.signInWithOtp({
+      phone: formattedPhone,
     });
 
     if (error) {
-      console.error("[API] Supabase signUp error:", error.message);
-      if (!error.message.toLowerCase().includes("already registered") && !error.message.toLowerCase().includes("already exists")) {
-        return { success: false, error: error.message };
-      }
-      console.log("[API] User already exists, continuing to send verification code");
-    } else {
-      console.log("[API] Account created. User:", data.user?.id);
+      console.error("[API] Supabase signInWithOtp error:", error.message);
+      return { success: false, error: error.message };
     }
 
-    console.log("[API] Now sending Twilio Verify SMS for signup...");
-    const smsResult = await sendSmsCode(phone);
-    return smsResult;
+    console.log("[API] Supabase OTP sent successfully for signup", data);
+    return { success: true, status: "pending" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[API] signUpAndSendCode exception:", msg);
+    console.error("[API] signUpWithPhone exception:", msg);
     if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
       return { success: false, error: "Network error. Please check your internet connection and try again." };
     }
@@ -169,49 +160,29 @@ export async function verifySmsCode(phone: string, code: string): Promise<Verify
   }
 }
 
-interface MemberSignupResponse {
-  success: boolean;
-  userId?: string;
-  error?: string;
-}
-
-interface MemberLoginResponse {
-  success: boolean;
-  userId?: string;
-  error?: string;
-}
-
-export async function memberSignupWithPassword(
-  phone: string,
-  password: string,
-): Promise<MemberSignupResponse> {
+export async function loginWithPhone(phone: string): Promise<SendSmsResponse> {
   try {
     if (!isSupabaseConfigured()) {
-      console.error("[API] Supabase is not configured - cannot sign up member");
+      console.error("[API] Supabase is not configured - cannot login member");
       return { success: false, error: "Authentication service is not configured. Please contact support." };
     }
 
-    console.log("[API] Ensuring password is set for member with phone:", phone);
+    const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
+    console.log("[API] Sending Supabase phone OTP for login:", formattedPhone);
+    const { data, error } = await supabase.auth.signInWithOtp({
+      phone: formattedPhone,
+    });
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData?.session?.user) {
-      console.log("[API] Active session found for user:", sessionData.session.user.id);
-      const { data, error } = await supabase.auth.updateUser({ password });
-
-      if (error) {
-        console.error("[API] Supabase updateUser password error:", error.message);
-        return { success: false, error: error.message };
-      }
-
-      console.log("[API] Password confirmed for user:", data.user?.id);
-      return { success: true, userId: data.user?.id ?? sessionData.session.user.id };
+    if (error) {
+      console.error("[API] Supabase signInWithOtp login error:", error.message);
+      return { success: false, error: error.message };
     }
 
-    console.log("[API] No active session - account was already created via signUp");
-    return { success: true };
+    console.log("[API] Supabase OTP sent successfully for login", data);
+    return { success: true, status: "pending" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[API] memberSignupWithPassword exception:", msg);
+    console.error("[API] loginWithPhone exception:", msg);
     if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
       return { success: false, error: "Network error. Please check your internet connection and try again." };
     }
@@ -219,37 +190,36 @@ export async function memberSignupWithPassword(
   }
 }
 
-export async function memberLoginWithPassword(
-  phone: string,
-  password: string,
-): Promise<MemberLoginResponse> {
+export async function verifyPhoneOtp(phone: string, code: string): Promise<VerifySmsResponse> {
   try {
     if (!isSupabaseConfigured()) {
-      console.error("[API] Supabase is not configured - cannot login member");
+      console.error("[API] Supabase is not configured - cannot verify OTP");
       return { success: false, error: "Authentication service is not configured. Please contact support." };
     }
 
-    console.log("[API] Logging in member with phone:", phone);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      phone,
-      password,
+    const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
+    console.log("[API] Verifying Supabase phone OTP for:", formattedPhone);
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone: formattedPhone,
+      token: code,
+      type: "sms",
     });
 
     if (error) {
-      console.error("[API] Supabase member login error:", error.message);
+      console.error("[API] Supabase verifyOtp error:", error.message);
       return { success: false, error: error.message };
     }
 
-    if (!data.user) {
-      console.error("[API] Supabase login returned no user");
-      return { success: false, error: "Login failed. Please try again." };
+    if (!data.session) {
+      console.error("[API] Supabase verifyOtp returned no session");
+      return { success: false, error: "Verification failed. Please try again." };
     }
 
-    console.log("[API] Member logged in via Supabase, user:", data.user.id);
-    return { success: true, userId: data.user.id };
+    console.log("[API] Supabase OTP verified, user:", data.user?.id);
+    return { success: true, status: "approved" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[API] memberLoginWithPassword exception:", msg);
+    console.error("[API] verifyPhoneOtp exception:", msg);
     if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
       return { success: false, error: "Network error. Please check your internet connection and try again." };
     }
