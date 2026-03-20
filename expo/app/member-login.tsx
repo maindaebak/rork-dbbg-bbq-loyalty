@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, LogIn, MessageSquareMore, Phone } from "lucide-react-native";
+import { KeyRound, LogIn, Phone } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
@@ -12,86 +12,49 @@ import {
   SectionTitle,
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
-import { sendSmsCode, verifySmsCode } from "@/lib/api";
+import { memberLoginWithPassword } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-
-type LoginStep = "phone" | "code-sent" | "verified";
 
 export default function MemberLoginScreen() {
   const { login } = useAuth();
   const { findMemberByPhone } = useMembersStore();
   const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_COUNTRY_CODE);
-  const [code, setCode] = useState<string>("");
-  const [step, setStep] = useState<LoginStep>("phone");
-
-  const [isSending, setIsSending] = useState<boolean>(false);
-  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [password, setPassword] = useState<string>("");
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
   const fullPhone = useMemo(() => {
     const digits = phoneNumber.replace(/[^\d]/g, "");
     return `${countryCode.dial}${digits}`;
   }, [countryCode.dial, phoneNumber]);
 
-  const canSendCode = useMemo<boolean>(
-    () => phoneNumber.replace(/[^\d]/g, "").length >= 7,
-    [phoneNumber],
+  const canLogin = useMemo<boolean>(
+    () => phoneNumber.replace(/[^\d]/g, "").length >= 7 && password.length >= 6,
+    [phoneNumber, password],
   );
 
-  const canVerify = useMemo<boolean>(() => code.trim().length === 6, [code]);
-
-  const handleSendCode = useCallback(async () => {
-    if (!canSendCode) {
-      Alert.alert("Phone required", "Enter your phone number with country code (e.g. +1 for US).");
+  const handleLogin = useCallback(async () => {
+    if (!canLogin) {
+      Alert.alert("Missing info", "Please enter your phone number and password.");
       return;
     }
 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsSending(true);
+    setIsLoggingIn(true);
 
     try {
       const phoneToSend = fullPhone;
-      console.log("[Login] Sending SMS to:", phoneToSend);
-      const result = await sendSmsCode(phoneToSend);
-      console.log("[Login] SMS result:", JSON.stringify(result));
-
-      if (!result.success) {
-        throw new Error(result.error ?? "Failed to send verification code.");
-      }
-
-      setStep("code-sent");
-      Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Login] Send SMS error:", msg);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Failed to send code", msg);
-    } finally {
-      setIsSending(false);
-    }
-  }, [canSendCode, fullPhone]);
-
-  const handleVerify = useCallback(async () => {
-    if (!canVerify) {
-      Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
-      return;
-    }
-
-    setIsVerifying(true);
-    try {
-      const phoneToSend = fullPhone;
-      console.log("[Login] Verifying code for:", phoneToSend);
-      const result = await verifySmsCode(phoneToSend, code);
-      console.log("[Login] Verify result:", JSON.stringify(result));
+      console.log("[Login] Logging in with phone:", phoneToSend);
+      const result = await memberLoginWithPassword(phoneToSend, password);
+      console.log("[Login] Login result:", JSON.stringify(result));
 
       if (!result.success) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Verification failed", "The code you entered is incorrect. Please try again.");
+        Alert.alert("Login failed", result.error ?? "Invalid phone number or password. Please try again.");
         return;
       }
 
-      setStep("verified");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       const existingMember = findMemberByPhone(fullPhone);
@@ -118,34 +81,32 @@ export default function MemberLoginScreen() {
       router.replace("/member-dashboard");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Please try again.";
-      console.error("[Login] Verify error:", msg);
+      console.error("[Login] Login error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Verification failed", msg);
+      Alert.alert("Login failed", msg);
     } finally {
-      setIsVerifying(false);
+      setIsLoggingIn(false);
     }
-  }, [canVerify, code, findMemberByPhone, fullPhone, login]);
+  }, [canLogin, findMemberByPhone, fullPhone, login, password]);
 
   return (
     <>
       <Stack.Screen options={{ title: "Log in", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
       <LoyaltyScreen
         eyebrow="Welcome back"
-        subtitle="Log in with your phone number. We'll send a text message to verify it's you."
+        subtitle="Log in with your phone number and password."
         title="Log in to your rewards."
         heroRight={
           <View style={styles.statusPill} testID="login-status">
             <Phone color="#F7C58B" size={18} />
-            <Text style={styles.statusText}>
-              {step === "verified" ? "Verified" : "Member"}
-            </Text>
+            <Text style={styles.statusText}>Member</Text>
           </View>
         }
       >
         <Panel testID="login-phone-panel">
           <SectionTitle
-            copy="Enter the phone number linked to your account."
-            title="Your phone number"
+            copy="Enter the phone number and password linked to your account."
+            title="Your credentials"
           />
           <PhoneInput
             countryCode={countryCode}
@@ -154,44 +115,30 @@ export default function MemberLoginScreen() {
             onPhoneNumberChange={setPhoneNumber}
             testID="login-phone-input"
           />
+
+          <View style={styles.passwordSection}>
+            <View style={styles.passwordHeader}>
+              <KeyRound color="#F7C58B" size={16} />
+              <Text style={styles.passwordHeaderText}>Password</Text>
+            </View>
+            <InputField
+              label="Password"
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              testID="login-password-input"
+              value={password}
+              secureTextEntry
+            />
+          </View>
+
           <ActionButton
-            icon={MessageSquareMore}
-            label={
-              isSending
-                ? "Sending code..."
-                : step === "code-sent"
-                  ? "Resend verification code"
-                  : "Send verification code"
-            }
-            onPress={handleSendCode}
-            testID="login-send-code-button"
-            variant="secondary"
+            icon={LogIn}
+            label={isLoggingIn ? "Logging in..." : "Log in"}
+            onPress={handleLogin}
+            testID="login-button"
+            variant="primary"
           />
         </Panel>
-
-        {(step === "code-sent" || step === "verified") && (
-          <Panel testID="login-code-panel">
-            <SectionTitle
-              copy="Enter the 6-digit code we texted to your phone."
-              title="Verification code"
-            />
-            <InputField
-              label="6-digit code"
-              keyboardType="numeric"
-              onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="Enter 6-digit code"
-              testID="login-code-input"
-              value={code}
-            />
-            <ActionButton
-              icon={CheckCircle2}
-              label={isVerifying ? "Verifying..." : "Verify & log in"}
-              onPress={handleVerify}
-              testID="login-verify-button"
-              variant="primary"
-            />
-          </Panel>
-        )}
 
         <Panel testID="login-signup-redirect-panel">
           <SectionTitle
@@ -226,6 +173,25 @@ const styles = StyleSheet.create({
   statusText: {
     color: "#F8E7D0",
     fontSize: 12,
+    fontWeight: "800" as const,
+  },
+  passwordSection: {
+    backgroundColor: "rgba(255, 247, 237, 0.03)",
+    borderColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  passwordHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 2,
+  },
+  passwordHeaderText: {
+    color: "#F7C58B",
+    fontSize: 14,
     fontWeight: "800" as const,
   },
 });

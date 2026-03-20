@@ -76,6 +76,94 @@ export async function verifySmsCode(phone: string, code: string): Promise<Verify
   }
 }
 
+interface MemberSignupResponse {
+  success: boolean;
+  userId?: string;
+  error?: string;
+}
+
+interface MemberLoginResponse {
+  success: boolean;
+  userId?: string;
+  error?: string;
+}
+
+export async function memberSignupWithPassword(
+  phone: string,
+  password: string,
+): Promise<MemberSignupResponse> {
+  try {
+    if (!isSupabaseConfigured()) {
+      console.error("[API] Supabase is not configured - cannot sign up member");
+      return { success: false, error: "Authentication service is not configured. Please contact support." };
+    }
+
+    console.log("[API] Signing up member with phone:", phone);
+    const { data, error } = await supabase.auth.signUp({
+      phone,
+      password,
+    });
+
+    if (error) {
+      console.error("[API] Supabase member signup error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    if (!data.user) {
+      console.error("[API] Supabase signup returned no user");
+      return { success: false, error: "Signup failed. Please try again." };
+    }
+
+    console.log("[API] Member signed up via Supabase, user:", data.user.id);
+    return { success: true, userId: data.user.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[API] memberSignupWithPassword exception:", msg);
+    if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
+      return { success: false, error: "Network error. Please check your internet connection and try again." };
+    }
+    return { success: false, error: msg };
+  }
+}
+
+export async function memberLoginWithPassword(
+  phone: string,
+  password: string,
+): Promise<MemberLoginResponse> {
+  try {
+    if (!isSupabaseConfigured()) {
+      console.error("[API] Supabase is not configured - cannot login member");
+      return { success: false, error: "Authentication service is not configured. Please contact support." };
+    }
+
+    console.log("[API] Logging in member with phone:", phone);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      phone,
+      password,
+    });
+
+    if (error) {
+      console.error("[API] Supabase member login error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    if (!data.user) {
+      console.error("[API] Supabase login returned no user");
+      return { success: false, error: "Login failed. Please try again." };
+    }
+
+    console.log("[API] Member logged in via Supabase, user:", data.user.id);
+    return { success: true, userId: data.user.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[API] memberLoginWithPassword exception:", msg);
+    if (msg.toLowerCase().includes("load failed") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
+      return { success: false, error: "Network error. Please check your internet connection and try again." };
+    }
+    return { success: false, error: msg };
+  }
+}
+
 export async function adminLogin(email: string, password: string): Promise<AdminLoginResponse> {
   try {
     console.log("[API] Admin login attempt for:", email);

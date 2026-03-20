@@ -1,78 +1,118 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
 import {
-  ChevronRight,
+  CheckCircle2,
   Info,
+  MessageSquareMore,
   Phone,
-  Save,
   ShieldAlert,
   Trash2,
   User,
-  X,
 } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
+  ActionButton,
   InputField,
   LoyaltyScreen,
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
+import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useAuth } from "@/providers/auth-provider";
 
-function formatPhone(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-  if (digits.length < 4) return digits;
-  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
+type DeleteStep = "idle" | "sending" | "code-sent" | "verifying";
 
 export default function MemberProfileScreen() {
-  const { member, updateProfile, deleteAccount } = useAuth();
+  const { member, deleteAccount } = useAuth();
 
-  const [isEditingPhone, setIsEditingPhone] = useState<boolean>(false);
-  const [editPhone, setEditPhone] = useState<string>(member?.phone ?? "");
+  const [deleteStep, setDeleteStep] = useState<DeleteStep>("idle");
+  const [deleteCode, setDeleteCode] = useState<string>("");
+  const [isSendingDelete, setIsSendingDelete] = useState<boolean>(false);
+  const [isVerifyingDelete, setIsVerifyingDelete] = useState<boolean>(false);
 
-  const handleSavePhone = useCallback(() => {
-    const digits = editPhone.replace(/\D/g, "");
-    if (digits.length !== 10) {
-      Alert.alert("Invalid phone", "Please enter a valid 10-digit phone number.");
-      return;
-    }
-    console.log("[Profile] Saving new phone", editPhone);
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateProfile({ phone: editPhone });
-    setIsEditingPhone(false);
-    Alert.alert("Updated", "Your phone number has been updated.");
-  }, [editPhone, updateProfile]);
-
-  const handleDeleteAccount = useCallback(() => {
+  const handleStartDelete = useCallback(() => {
     Alert.alert(
       "Delete account",
-      "This will permanently delete your account and all your rewards data. This action cannot be undone.",
+      "This will permanently delete your account and all your rewards data. We'll send a verification code to your phone to confirm.\n\nThis action cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Delete",
+          text: "Continue",
           style: "destructive",
-          onPress: () => {
-            console.log("[Profile] Deleting account");
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            deleteAccount();
-            router.replace("/");
+          onPress: async () => {
+            if (!member?.phone) {
+              Alert.alert("Error", "No phone number found on your account.");
+              return;
+            }
+            setDeleteStep("sending");
+            setIsSendingDelete(true);
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+            try {
+              console.log("[Profile] Sending delete verification SMS to:", member.phone);
+              const result = await sendSmsCode(member.phone);
+              if (!result.success) {
+                throw new Error(result.error ?? "Failed to send verification code.");
+              }
+              setDeleteStep("code-sent");
+              Alert.alert("Code sent", "We texted a 6-digit verification code to your phone. Enter it to confirm account deletion.");
+            } catch (error) {
+              const msg = error instanceof Error ? error.message : String(error);
+              console.error("[Profile] Delete SMS error:", msg);
+              setDeleteStep("idle");
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert("Failed to send code", msg);
+            } finally {
+              setIsSendingDelete(false);
+            }
           },
         },
       ],
     );
-  }, [deleteAccount]);
+  }, [member?.phone]);
+
+  const handleVerifyDelete = useCallback(async () => {
+    if (deleteCode.trim().length !== 6) {
+      Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
+      return;
+    }
+    if (!member?.phone) return;
+
+    setIsVerifyingDelete(true);
+    setDeleteStep("verifying");
+    try {
+      console.log("[Profile] Verifying delete code for:", member.phone);
+      const result = await verifySmsCode(member.phone, deleteCode);
+      if (!result.success) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Verification failed", "The code you entered is incorrect. Please try again.");
+        setDeleteStep("code-sent");
+        return;
+      }
+
+      console.log("[Profile] Delete verification passed, deleting account");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      deleteAccount();
+      router.replace("/");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Please try again.";
+      console.error("[Profile] Delete verify error:", msg);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Verification failed", msg);
+      setDeleteStep("code-sent");
+    } finally {
+      setIsVerifyingDelete(false);
+    }
+  }, [deleteAccount, deleteCode, member?.phone]);
 
   return (
     <>
       <Stack.Screen options={{ title: "My profile", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
       <LoyaltyScreen
         eyebrow="Account settings"
-        subtitle="Manage your profile, update contact info, or sign out."
+        subtitle="View your profile details or manage your account."
         title="Your member profile."
         heroRight={
           <View style={styles.avatarCircle} testID="profile-avatar">
@@ -121,75 +161,71 @@ export default function MemberProfileScreen() {
 
           <View style={styles.divider} />
 
-          <View style={styles.birthdayNote}>
+          <View style={styles.contactNote}>
             <Info color="#F59E0B" size={15} />
-            <Text style={styles.birthdayNoteText}>
-              Birthday can only be changed by staff upon presenting a valid government-issued ID.
+            <Text style={styles.contactNoteText}>
+              To change your phone number or birthday, please contact a staff member for assistance.
             </Text>
           </View>
         </Panel>
 
-        <Panel testID="profile-edit-phone-panel">
-          <SectionTitle copy="Update the phone number linked to your account." title="Change phone number" />
-          {isEditingPhone ? (
-            <>
-              <InputField
-                label="New phone number"
-                keyboardType="phone-pad"
-                onChangeText={(value) => setEditPhone(formatPhone(value))}
-                placeholder="555-123-4567"
-                testID="profile-phone-input"
-                value={editPhone}
-              />
-              <View style={styles.editActions}>
-                <Pressable
-                  onPress={() => {
-                    setIsEditingPhone(false);
-                    setEditPhone(member?.phone ?? "");
-                  }}
-                  style={styles.cancelButton}
-                  testID="profile-phone-cancel"
-                >
-                  <X color="#C8AA94" size={16} />
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSavePhone}
-                  style={styles.saveButton}
-                  testID="profile-phone-save"
-                >
-                  <Save color="#1A120E" size={16} />
-                  <Text style={styles.saveText}>Save</Text>
-                </Pressable>
-              </View>
-            </>
-          ) : (
-            <Pressable
-              onPress={() => {
-                setEditPhone(member?.phone ?? "");
-                setIsEditingPhone(true);
-              }}
-              style={({ pressed }) => [styles.editRow, pressed && styles.pressed]}
-              testID="profile-edit-phone-button"
-            >
-              <Phone color="#F8E7D0" size={16} />
-              <Text style={styles.editRowText}>Edit phone number</Text>
-              <ChevronRight color="#F8E7D0" size={16} />
-            </Pressable>
-          )}
-        </Panel>
-
         <Panel testID="profile-danger-panel">
           <SectionTitle copy="Permanently remove your account and all data." title="Danger zone" />
-          <Pressable
-            onPress={handleDeleteAccount}
-            style={({ pressed }) => [styles.dangerButton, pressed && styles.pressed]}
-            testID="profile-delete-button"
-          >
-            <Trash2 color="#EF4444" size={18} />
-            <Text style={styles.dangerText}>Delete my account</Text>
-            <ShieldAlert color="#EF4444" size={18} />
-          </Pressable>
+
+          {deleteStep === "idle" && (
+            <Pressable
+              onPress={handleStartDelete}
+              style={({ pressed }) => [styles.dangerButton, pressed && styles.pressed]}
+              testID="profile-delete-button"
+            >
+              <Trash2 color="#EF4444" size={18} />
+              <Text style={styles.dangerText}>Delete my account</Text>
+              <ShieldAlert color="#EF4444" size={18} />
+            </Pressable>
+          )}
+
+          {(deleteStep === "sending" || deleteStep === "code-sent" || deleteStep === "verifying") && (
+            <View style={styles.deleteVerifySection}>
+              <View style={styles.deleteVerifyBanner}>
+                <MessageSquareMore color="#F87171" size={16} />
+                <Text style={styles.deleteVerifyBannerText}>
+                  {isSendingDelete
+                    ? "Sending verification code..."
+                    : "Enter the 6-digit code sent to your phone to confirm deletion."}
+                </Text>
+              </View>
+
+              {(deleteStep === "code-sent" || deleteStep === "verifying") && (
+                <>
+                  <InputField
+                    label="Verification code"
+                    keyboardType="numeric"
+                    onChangeText={(value) => setDeleteCode(value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="Enter 6-digit code"
+                    testID="profile-delete-code-input"
+                    value={deleteCode}
+                  />
+                  <ActionButton
+                    icon={CheckCircle2}
+                    label={isVerifyingDelete ? "Verifying..." : "Confirm & delete account"}
+                    onPress={handleVerifyDelete}
+                    testID="profile-delete-verify-button"
+                    variant="primary"
+                  />
+                  <Pressable
+                    onPress={() => {
+                      setDeleteStep("idle");
+                      setDeleteCode("");
+                    }}
+                    style={({ pressed }) => [styles.cancelDeleteButton, pressed && { opacity: 0.7 }]}
+                    testID="profile-delete-cancel-button"
+                  >
+                    <Text style={styles.cancelDeleteText}>Cancel</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
         </Panel>
       </LoyaltyScreen>
     </>
@@ -207,20 +243,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 48,
   },
-  cancelButton: {
+  contactNote: {
     alignItems: "center",
-    borderColor: "rgba(247, 197, 139, 0.18)",
-    borderRadius: 14,
+    backgroundColor: "rgba(245, 158, 11, 0.06)",
+    borderColor: "rgba(245, 158, 11, 0.15)",
+    borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 10,
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  cancelText: {
-    color: "#C8AA94",
-    fontSize: 14,
-    fontWeight: "700" as const,
+  contactNoteText: {
+    color: "#FCD34D",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600" as const,
+    lineHeight: 17,
   },
   dangerButton: {
     alignItems: "center",
@@ -240,31 +280,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800" as const,
   },
-  divider: {
-    backgroundColor: "rgba(247, 197, 139, 0.08)",
-    height: 1,
+  deleteVerifySection: {
+    gap: 12,
   },
-  editActions: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "flex-end",
-  },
-  editRow: {
+  deleteVerifyBanner: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 247, 237, 0.04)",
-    borderColor: "rgba(247, 197, 139, 0.12)",
-    borderRadius: 16,
+    backgroundColor: "rgba(248, 113, 113, 0.08)",
+    borderColor: "rgba(248, 113, 113, 0.2)",
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
-  editRowText: {
-    color: "#F8E7D0",
+  deleteVerifyBannerText: {
+    color: "#FCA5A5",
     flex: 1,
-    fontSize: 15,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  cancelDeleteButton: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  cancelDeleteText: {
+    color: "#C8AA94",
+    fontSize: 14,
     fontWeight: "700" as const,
+  },
+  divider: {
+    backgroundColor: "rgba(247, 197, 139, 0.08)",
+    height: 1,
   },
   infoContent: {
     flex: 1,
@@ -296,38 +344,5 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.82,
     transform: [{ scale: 0.985 }],
-  },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: "#F7C58B",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  saveText: {
-    color: "#1A120E",
-    fontSize: 14,
-    fontWeight: "700" as const,
-  },
-  birthdayNote: {
-    alignItems: "center",
-    backgroundColor: "rgba(245, 158, 11, 0.06)",
-    borderColor: "rgba(245, 158, 11, 0.15)",
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  birthdayNoteText: {
-    color: "#FCD34D",
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "600" as const,
-    lineHeight: 17,
   },
 });

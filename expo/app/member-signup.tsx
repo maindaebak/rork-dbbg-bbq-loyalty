@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, FileText, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
+import { CheckCircle2, FileText, KeyRound, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -12,7 +12,7 @@ import {
   SectionTitle,
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
-import { sendSmsCode, verifySmsCode } from "@/lib/api";
+import { sendSmsCode, verifySmsCode, memberSignupWithPassword } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -22,6 +22,8 @@ interface SignupFormState {
   birthMonth: string;
   birthDay: string;
   birthYear: string;
+  password: string;
+  confirmPassword: string;
   code: string;
   agreedToTerms: boolean;
 }
@@ -34,6 +36,8 @@ const INITIAL_FORM: SignupFormState = {
   birthMonth: "",
   birthDay: "",
   birthYear: "",
+  password: "",
+  confirmPassword: "",
   code: "",
   agreedToTerms: false,
 };
@@ -75,6 +79,9 @@ export default function MemberSignupScreen() {
     return `${countryCode.dial}${digits}`;
   }, [countryCode.dial, form.phoneNumber]);
 
+  const passwordValid = useMemo<boolean>(() => form.password.length >= 6, [form.password]);
+  const passwordsMatch = useMemo<boolean>(() => form.password === form.confirmPassword && form.confirmPassword.length > 0, [form.password, form.confirmPassword]);
+
   const canSendCode = useMemo<boolean>(() => {
     const phoneDigits = form.phoneNumber.replace(/[^\d]/g, "");
     return Boolean(
@@ -83,15 +90,25 @@ export default function MemberSignupScreen() {
         isValidBirthMonth(form.birthMonth) &&
         isValidBirthDay(form.birthDay) &&
         isValidBirthYear(form.birthYear) &&
+        passwordValid &&
+        passwordsMatch &&
         form.agreedToTerms,
     );
-  }, [form.birthYear, form.birthMonth, form.birthDay, form.fullName, form.phoneNumber, form.agreedToTerms]);
+  }, [form.birthYear, form.birthMonth, form.birthDay, form.fullName, form.phoneNumber, form.agreedToTerms, passwordValid, passwordsMatch]);
 
   const canVerify = useMemo<boolean>(() => form.code.trim().length === 6, [form.code]);
 
   const handleSendCode = useCallback(async () => {
     if (!form.agreedToTerms) {
       Alert.alert("Terms & Conditions", "You must agree to the Terms & Conditions before signing up.");
+      return;
+    }
+    if (!passwordValid) {
+      Alert.alert("Password too short", "Password must be at least 6 characters.");
+      return;
+    }
+    if (!passwordsMatch) {
+      Alert.alert("Passwords don't match", "Please make sure both passwords match.");
       return;
     }
     if (!canSendCode) {
@@ -124,7 +141,7 @@ export default function MemberSignupScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [canSendCode, fullPhone, form.agreedToTerms]);
+  }, [canSendCode, fullPhone, form.agreedToTerms, passwordValid, passwordsMatch]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
@@ -146,6 +163,15 @@ export default function MemberSignupScreen() {
       }
 
       setVerificationStatus("verified");
+
+      console.log("[Signup] Creating Supabase auth account with password for:", phoneToSend);
+      const signupResult = await memberSignupWithPassword(phoneToSend, form.password);
+      console.log("[Signup] Signup result:", JSON.stringify(signupResult));
+
+      if (!signupResult.success) {
+        console.warn("[Signup] Supabase password signup warning:", signupResult.error);
+      }
+
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       const member: MemberProfile = {
@@ -189,7 +215,7 @@ export default function MemberSignupScreen() {
       >
         <Panel testID="signup-form-panel">
           <SectionTitle
-            copy="Fill in your details and verify your phone number to get started."
+            copy="Fill in your details, create a password, and verify your phone number to get started."
             title="Create your account"
           />
           <InputField
@@ -241,6 +267,41 @@ export default function MemberSignupScreen() {
           <Text style={styles.birthdateNote}>
             Please use your real name and birthdate that is listed on your government issued ID for security and identification verification purposes.
           </Text>
+
+          <View style={styles.passwordSection}>
+            <View style={styles.passwordHeader}>
+              <KeyRound color="#F7C58B" size={16} />
+              <Text style={styles.passwordHeaderText}>Create a password</Text>
+            </View>
+            <InputField
+              label="Password (min. 6 characters)"
+              onChangeText={(value) => updateField("password", value)}
+              placeholder="Enter password"
+              testID="signup-password-input"
+              value={form.password}
+              secureTextEntry
+            />
+            {form.password.length > 0 && !passwordValid && (
+              <Text style={styles.passwordError}>Password must be at least 6 characters</Text>
+            )}
+            <InputField
+              label="Confirm password"
+              onChangeText={(value) => updateField("confirmPassword", value)}
+              placeholder="Re-enter password"
+              testID="signup-confirm-password-input"
+              value={form.confirmPassword}
+              secureTextEntry
+            />
+            {form.confirmPassword.length > 0 && !passwordsMatch && (
+              <Text style={styles.passwordError}>Passwords do not match</Text>
+            )}
+            {passwordValid && passwordsMatch && (
+              <View style={styles.passwordMatch}>
+                <CheckCircle2 color="#22C55E" size={14} />
+                <Text style={styles.passwordMatchText}>Passwords match</Text>
+              </View>
+            )}
+          </View>
 
           <Pressable
             onPress={() => setForm((prev) => ({ ...prev, agreedToTerms: !prev.agreedToTerms }))}
@@ -345,6 +406,42 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7C58B",
     borderColor: "#F7C58B",
   },
+  passwordSection: {
+    backgroundColor: "rgba(255, 247, 237, 0.03)",
+    borderColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  passwordHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 2,
+  },
+  passwordHeaderText: {
+    color: "#F7C58B",
+    fontSize: 14,
+    fontWeight: "800" as const,
+  },
+  passwordError: {
+    color: "#F87171",
+    fontSize: 12,
+    fontWeight: "600" as const,
+    marginTop: -4,
+  },
+  passwordMatch: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: -4,
+  },
+  passwordMatchText: {
+    color: "#22C55E",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
   row: {
     flexDirection: "row",
     gap: 12,
@@ -405,5 +502,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700" as const,
   },
-
 });
