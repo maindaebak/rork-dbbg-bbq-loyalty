@@ -3,7 +3,6 @@ import { Stack, router } from "expo-router";
 import {
   ChevronRight,
   Info,
-  LogOut,
   Phone,
   Save,
   ShieldAlert,
@@ -15,7 +14,6 @@ import React, { useCallback, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
-  ActionButton,
   InputField,
   LoyaltyScreen,
   Panel,
@@ -31,7 +29,7 @@ function formatPhone(value: string): string {
 }
 
 export default function MemberProfileScreen() {
-  const { member, updateProfile, logout, deleteAccount } = useAuth();
+  const { member, updateProfile, deleteAccount } = useAuth();
 
   const [isEditingPhone, setIsEditingPhone] = useState<boolean>(false);
   const [editPhone, setEditPhone] = useState<string>(member?.phone ?? "");
@@ -48,26 +46,6 @@ export default function MemberProfileScreen() {
     setIsEditingPhone(false);
     Alert.alert("Updated", "Your phone number has been updated.");
   }, [editPhone, updateProfile]);
-
-  const handleLogout = useCallback(() => {
-    Alert.alert(
-      "Log out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log out",
-          style: "destructive",
-          onPress: () => {
-            console.log("[Profile] Logging out");
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            logout();
-            router.replace("/");
-          },
-        },
-      ],
-    );
-  }, [logout]);
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -103,7 +81,7 @@ export default function MemberProfileScreen() {
         }
       >
         <Panel testID="profile-info-panel">
-          <SectionTitle copy="Your membership details." title="Member info" />
+          <SectionTitle copy="Your membership details." title="Member Information" />
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
@@ -199,17 +177,6 @@ export default function MemberProfileScreen() {
               <ChevronRight color="#F8E7D0" size={16} />
             </Pressable>
           )}
-        </Panel>
-
-        <Panel testID="profile-actions-panel">
-          <SectionTitle copy="Account actions." title="Account" />
-          <ActionButton
-            icon={LogOut}
-            label="Log out"
-            onPress={handleLogout}
-            testID="profile-logout-button"
-            variant="secondary"
-          />
         </Panel>
 
         <Panel testID="profile-danger-panel">
