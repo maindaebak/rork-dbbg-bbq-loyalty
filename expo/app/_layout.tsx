@@ -18,13 +18,12 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="welcome" options={{ headerShown: false }} />
-      <Stack.Screen name="member-signup" options={{ headerBackTitle: "Welcome" }} />
-      <Stack.Screen name="member-login" options={{ headerBackTitle: "Welcome" }} />
+      <Stack.Screen name="member-signup" options={{ headerBackTitle: "Back" }} />
+      <Stack.Screen name="member-login" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="member-dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="member-profile" options={{ headerBackTitle: "Dashboard" }} />
       <Stack.Screen name="points-history" options={{ headerBackTitle: "Dashboard" }} />
-      <Stack.Screen name="admin-login" options={{ headerBackTitle: "Welcome" }} />
+      <Stack.Screen name="admin-login" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="admin-members" options={{ headerBackTitle: "Dashboard" }} />
       <Stack.Screen name="admin-settings" options={{ headerBackTitle: "Dashboard" }} />
