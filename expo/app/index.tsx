@@ -59,7 +59,7 @@ export default function IndexScreen() {
       <LoyaltyScreen
         eyebrow="Dae Bak Bon Ga Korean Restaurant"
         subtitle="Join our loyalty program, earn points on every meal, and redeem delicious rewards."
-        title="Welcome to Dae Bak Bon Ga."
+        title="Welcome to Dae Bak Bon Ga"
         heroRight={
           <View style={styles.badge} testID="welcome-badge">
             <Flame color="#F7C58B" size={18} />
