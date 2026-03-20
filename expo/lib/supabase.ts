@@ -6,15 +6,28 @@ let _supabase: SupabaseClient | null = null;
 function getSupabaseClient(): SupabaseClient {
   if (_supabase) return _supabase;
 
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
 
   console.log("[Supabase] Initializing client...");
   console.log("[Supabase] URL:", supabaseUrl ? supabaseUrl.substring(0, 30) + "..." : "EMPTY");
   console.log("[Supabase] Key:", supabaseAnonKey ? supabaseAnonKey.substring(0, 10) + "..." : "EMPTY");
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("[Supabase] Missing URL or Key - client will not work properly");
+    console.warn("[Supabase] Missing URL or Key - using placeholder to prevent crash");
+    _supabase = createClient(
+      supabaseUrl || "https://placeholder.supabase.co",
+      supabaseAnonKey || "placeholder-key",
+      {
+        auth: {
+          storage: AsyncStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      }
+    );
+    return _supabase;
   }
 
   _supabase = createClient(supabaseUrl, supabaseAnonKey, {
