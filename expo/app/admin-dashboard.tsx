@@ -43,7 +43,7 @@ export default function AdminDashboardScreen() {
           console.log("[AdminDashboard] Logging out");
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           logout();
-          router.replace("/welcome");
+          router.replace("/");
         },
       },
     ]);

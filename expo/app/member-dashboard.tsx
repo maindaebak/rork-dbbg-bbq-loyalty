@@ -183,7 +183,7 @@ export default function MemberDashboardScreen() {
                       console.log("[Dashboard] Logging out");
                       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                       logout();
-                      router.replace("/welcome");
+                      router.replace("/");
                     },
                   },
                 ],

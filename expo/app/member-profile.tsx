@@ -62,7 +62,7 @@ export default function MemberProfileScreen() {
             console.log("[Profile] Logging out");
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             logout();
-            router.replace("/welcome");
+            router.replace("/");
           },
         },
       ],
@@ -82,7 +82,7 @@ export default function MemberProfileScreen() {
             console.log("[Profile] Deleting account");
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             deleteAccount();
-            router.replace("/welcome");
+            router.replace("/");
           },
         },
       ],
