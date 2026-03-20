@@ -98,7 +98,23 @@ export async function memberSignupWithPassword(
       return { success: false, error: "Authentication service is not configured. Please contact support." };
     }
 
-    console.log("[API] Signing up member with phone:", phone);
+    console.log("[API] Setting password for authenticated member with phone:", phone);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user) {
+      console.log("[API] Active session found, updating password for user:", sessionData.session.user.id);
+      const { data, error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        console.error("[API] Supabase updateUser password error:", error.message);
+        return { success: false, error: error.message };
+      }
+
+      console.log("[API] Password set successfully for user:", data.user?.id);
+      return { success: true, userId: data.user?.id ?? sessionData.session.user.id };
+    }
+
+    console.log("[API] No active session, falling back to signUp with phone:", phone);
     const { data, error } = await supabase.auth.signUp({
       phone,
       password,
