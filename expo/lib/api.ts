@@ -63,18 +63,22 @@ export async function verifySmsCode(phone: string, code: string): Promise<Verify
 export async function adminLogin(email: string, password: string): Promise<AdminLoginResponse> {
   try {
     console.log("[API] Admin login for:", email);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
 
-    if (error) {
-      console.error("[API] Admin login error:", error.message);
-      return { success: false, error: error.message };
+    const envEmail = process.env.EXPO_PUBLIC_ADMIN_EMAIL ?? "";
+    const envPassword = process.env.EXPO_PUBLIC_ADMIN_PASSWORD ?? "";
+
+    if (!envEmail || !envPassword) {
+      console.error("[API] Admin credentials not configured in env vars");
+      return { success: false, error: "Admin credentials not configured. Please set EXPO_PUBLIC_ADMIN_EMAIL and EXPO_PUBLIC_ADMIN_PASSWORD." };
     }
 
-    console.log("[API] Admin logged in:", data.user?.email);
-    return { success: true, email: data.user?.email ?? email };
+    if (email.trim().toLowerCase() === envEmail.trim().toLowerCase() && password === envPassword) {
+      console.log("[API] Admin credentials matched");
+      return { success: true, email: email.trim().toLowerCase() };
+    }
+
+    console.log("[API] Admin credentials did not match");
+    return { success: false, error: "Invalid admin credentials" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[API] adminLogin exception:", msg);
