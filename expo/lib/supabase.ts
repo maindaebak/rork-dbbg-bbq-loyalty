@@ -17,23 +17,45 @@ if (supabaseUrl && supabaseAnonKey) {
   });
 } else {
   console.warn("[Supabase] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY. Supabase client not initialized.");
+
+  const notConfiguredError = new Error("Supabase not configured");
+
+  const createChainableProxy = (): any => {
+    const proxy: any = new Proxy(
+      Object.assign(() => {}, {
+        then: (resolve: (value: any) => void) => {
+          resolve({ data: null, error: notConfiguredError });
+          return proxy;
+        },
+      }),
+      {
+        get(target, prop) {
+          if (prop === "then") return target.then;
+          if (prop === "data") return null;
+          if (prop === "error") return notConfiguredError;
+          return (..._args: any[]) => createChainableProxy();
+        },
+        apply() {
+          return createChainableProxy();
+        },
+      }
+    );
+    return proxy;
+  };
+
   supabase = new Proxy({} as SupabaseClient, {
     get(_, prop) {
       if (prop === "auth") {
         return new Proxy({}, {
           get() {
-            return () => Promise.resolve({ data: null, error: new Error("Supabase not configured") });
+            return (..._args: any[]) => Promise.resolve({ data: null, error: notConfiguredError });
           },
         });
       }
       if (prop === "from") {
-        return () => new Proxy({}, {
-          get() {
-            return () => Promise.resolve({ data: null, error: new Error("Supabase not configured") });
-          },
-        });
+        return (..._args: any[]) => createChainableProxy();
       }
-      return () => Promise.resolve({ data: null, error: new Error("Supabase not configured") });
+      return (..._args: any[]) => Promise.resolve({ data: null, error: notConfiguredError });
     },
   });
 }
