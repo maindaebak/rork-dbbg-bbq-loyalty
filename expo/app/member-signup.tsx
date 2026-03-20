@@ -11,13 +11,14 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
+import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
 import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
 interface SignupFormState {
   fullName: string;
-  phone: string;
+  phoneNumber: string;
   birthMonth: string;
   birthDay: string;
   birthYear: string;
@@ -29,21 +30,13 @@ type VerificationStatus = "idle" | "sending" | "sent" | "verified";
 
 const INITIAL_FORM: SignupFormState = {
   fullName: "",
-  phone: "",
+  phoneNumber: "",
   birthMonth: "",
   birthDay: "",
   birthYear: "",
   code: "",
   agreedToTerms: false,
 };
-
-function formatPhone(value: string): string {
-  const digits = value.replace(/[^\d]/g, "");
-  if (digits.length === 0) {
-    return "+";
-  }
-  return "+" + digits.slice(0, 15);
-}
 
 function isValidBirthMonth(value: string): boolean {
   const num = Number(value);
@@ -64,6 +57,7 @@ export default function MemberSignupScreen() {
   const { login } = useAuth();
   const { registerMember } = useMembersStore();
   const [form, setForm] = useState<SignupFormState>(INITIAL_FORM);
+  const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_COUNTRY_CODE);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("idle");
 
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -72,20 +66,26 @@ export default function MemberSignupScreen() {
   const updateField = useCallback((key: keyof SignupFormState, value: string) => {
     setForm((current) => ({
       ...current,
-      [key]: key === "phone" ? formatPhone(value) : value,
+      [key]: value,
     }));
   }, []);
 
+  const fullPhone = useMemo(() => {
+    const digits = form.phoneNumber.replace(/[^\d]/g, "");
+    return `${countryCode.dial}${digits}`;
+  }, [countryCode.dial, form.phoneNumber]);
+
   const canSendCode = useMemo<boolean>(() => {
+    const phoneDigits = form.phoneNumber.replace(/[^\d]/g, "");
     return Boolean(
       form.fullName.trim().length >= 2 &&
-        form.phone.replace(/[^\d]/g, "").length >= 11 &&
+        phoneDigits.length >= 7 &&
         isValidBirthMonth(form.birthMonth) &&
         isValidBirthDay(form.birthDay) &&
         isValidBirthYear(form.birthYear) &&
         form.agreedToTerms,
     );
-  }, [form.birthYear, form.birthMonth, form.birthDay, form.fullName, form.phone, form.agreedToTerms]);
+  }, [form.birthYear, form.birthMonth, form.birthDay, form.fullName, form.phoneNumber, form.agreedToTerms]);
 
   const canVerify = useMemo<boolean>(() => form.code.trim().length === 6, [form.code]);
 
@@ -104,7 +104,7 @@ export default function MemberSignupScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const phoneToSend = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
+      const phoneToSend = fullPhone;
       console.log("[Signup] Sending SMS to:", phoneToSend);
       const result = await sendSmsCode(phoneToSend);
       console.log("[Signup] SMS result:", JSON.stringify(result));
@@ -124,7 +124,7 @@ export default function MemberSignupScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [canSendCode, form.phone, form.agreedToTerms]);
+  }, [canSendCode, fullPhone, form.agreedToTerms]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
@@ -134,7 +134,7 @@ export default function MemberSignupScreen() {
 
     setIsVerifying(true);
     try {
-      const phoneToSend = form.phone.startsWith("+") ? form.phone : "+" + form.phone.replace(/[^\d]/g, "");
+      const phoneToSend = fullPhone;
       console.log("[Signup] Verifying code for:", phoneToSend);
       const result = await verifySmsCode(phoneToSend, form.code);
       console.log("[Signup] Verify result:", JSON.stringify(result));
@@ -151,7 +151,7 @@ export default function MemberSignupScreen() {
       const member: MemberProfile = {
         id: `member-${Date.now()}`,
         fullName: form.fullName.trim(),
-        phone: form.phone,
+        phone: fullPhone,
         birthdate: `${form.birthMonth.trim().padStart(2, "0")}/${form.birthDay.trim().padStart(2, "0")}`,
         birthYear: form.birthYear.trim(),
         createdAt: new Date().toISOString(),
@@ -169,7 +169,7 @@ export default function MemberSignupScreen() {
     } finally {
       setIsVerifying(false);
     }
-  }, [canVerify, form, login, registerMember]);
+  }, [canVerify, form, fullPhone, login, registerMember]);
 
   return (
     <>
@@ -199,13 +199,12 @@ export default function MemberSignupScreen() {
             testID="signup-name-input"
             value={form.fullName}
           />
-          <InputField
-            label="Phone number"
-            keyboardType="phone-pad"
-            onChangeText={(value) => updateField("phone", value)}
-            placeholder="+1XXXXXXXXXX"
+          <PhoneInput
+            countryCode={countryCode}
+            onCountryCodeChange={setCountryCode}
+            phoneNumber={form.phoneNumber}
+            onPhoneNumberChange={(value) => updateField("phoneNumber", value)}
             testID="signup-phone-input"
-            value={form.phone}
           />
           <View style={styles.row}>
             <View style={styles.rowItemSmall}>

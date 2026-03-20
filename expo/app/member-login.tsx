@@ -11,33 +11,32 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
+import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
 import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
 type LoginStep = "phone" | "code-sent" | "verified";
 
-function formatPhone(value: string): string {
-  const digits = value.replace(/[^\d]/g, "");
-  if (digits.length === 0) {
-    return "+";
-  }
-  return "+" + digits.slice(0, 15);
-}
-
 export default function MemberLoginScreen() {
   const { login } = useAuth();
   const { findMemberByPhone } = useMembersStore();
-  const [phone, setPhone] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_COUNTRY_CODE);
   const [code, setCode] = useState<string>("");
   const [step, setStep] = useState<LoginStep>("phone");
 
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
+  const fullPhone = useMemo(() => {
+    const digits = phoneNumber.replace(/[^\d]/g, "");
+    return `${countryCode.dial}${digits}`;
+  }, [countryCode.dial, phoneNumber]);
+
   const canSendCode = useMemo<boolean>(
-    () => phone.replace(/[^\d]/g, "").length >= 11,
-    [phone],
+    () => phoneNumber.replace(/[^\d]/g, "").length >= 7,
+    [phoneNumber],
   );
 
   const canVerify = useMemo<boolean>(() => code.trim().length === 6, [code]);
@@ -52,7 +51,7 @@ export default function MemberLoginScreen() {
     setIsSending(true);
 
     try {
-      const phoneToSend = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
+      const phoneToSend = fullPhone;
       console.log("[Login] Sending SMS to:", phoneToSend);
       const result = await sendSmsCode(phoneToSend);
       console.log("[Login] SMS result:", JSON.stringify(result));
@@ -71,7 +70,7 @@ export default function MemberLoginScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [canSendCode, phone]);
+  }, [canSendCode, fullPhone]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
@@ -81,7 +80,7 @@ export default function MemberLoginScreen() {
 
     setIsVerifying(true);
     try {
-      const phoneToSend = phone.startsWith("+") ? phone : "+" + phone.replace(/[^\d]/g, "");
+      const phoneToSend = fullPhone;
       console.log("[Login] Verifying code for:", phoneToSend);
       const result = await verifySmsCode(phoneToSend, code);
       console.log("[Login] Verify result:", JSON.stringify(result));
@@ -95,7 +94,7 @@ export default function MemberLoginScreen() {
       setStep("verified");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      const existingMember = findMemberByPhone(phone);
+      const existingMember = findMemberByPhone(fullPhone);
       const member: MemberProfile = existingMember
         ? {
             id: existingMember.id,
@@ -108,7 +107,7 @@ export default function MemberLoginScreen() {
         : {
             id: `member-${Date.now()}`,
             fullName: "Returning Member",
-            phone,
+            phone: fullPhone,
             birthdate: "",
             birthYear: "",
             createdAt: new Date().toISOString(),
@@ -125,7 +124,7 @@ export default function MemberLoginScreen() {
     } finally {
       setIsVerifying(false);
     }
-  }, [canVerify, code, findMemberByPhone, login, phone]);
+  }, [canVerify, code, findMemberByPhone, fullPhone, login]);
 
   return (
     <>
@@ -148,13 +147,12 @@ export default function MemberLoginScreen() {
             copy="Enter the phone number linked to your account."
             title="Your phone number"
           />
-          <InputField
-            label="Phone number"
-            keyboardType="phone-pad"
-            onChangeText={(value) => setPhone(formatPhone(value))}
-            placeholder="+1XXXXXXXXXX"
+          <PhoneInput
+            countryCode={countryCode}
+            onCountryCodeChange={setCountryCode}
+            phoneNumber={phoneNumber}
+            onPhoneNumberChange={setPhoneNumber}
             testID="login-phone-input"
-            value={phone}
           />
           <ActionButton
             icon={MessageSquareMore}
