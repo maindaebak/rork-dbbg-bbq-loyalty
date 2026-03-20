@@ -12,7 +12,7 @@ import {
   SectionTitle,
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
-import { sendSmsCode, verifySmsCode, memberSignupWithPassword } from "@/lib/api";
+import { signUpAndSendCode, verifySmsCode, memberSignupWithPassword } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -122,9 +122,9 @@ export default function MemberSignupScreen() {
 
     try {
       const phoneToSend = fullPhone;
-      console.log("[Signup] Sending SMS to:", phoneToSend);
-      const result = await sendSmsCode(phoneToSend);
-      console.log("[Signup] SMS result:", JSON.stringify(result));
+      console.log("[Signup] Creating account and sending SMS to:", phoneToSend);
+      const result = await signUpAndSendCode(phoneToSend, form.password);
+      console.log("[Signup] SignUp+SMS result:", JSON.stringify(result));
 
       if (!result.success) {
         throw new Error(result.error ?? "Failed to send verification code.");
@@ -141,7 +141,7 @@ export default function MemberSignupScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [canSendCode, fullPhone, form.agreedToTerms, passwordValid, passwordsMatch]);
+  }, [canSendCode, fullPhone, form.agreedToTerms, form.password, passwordValid, passwordsMatch]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
