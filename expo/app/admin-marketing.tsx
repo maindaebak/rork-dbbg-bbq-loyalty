@@ -3,14 +3,18 @@ import { Stack } from "expo-router";
 import {
   Bell,
   Cake,
+  Check,
   ChevronDown,
   ChevronUp,
   Clock,
   Filter,
   Megaphone,
+  Search,
   Send,
   Sparkles,
+  UserCheck,
   Users,
+  X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -19,6 +23,7 @@ import {
   LayoutAnimation,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -129,6 +134,8 @@ function getEligibleMembers(
   return optedIn;
 }
 
+type RecipientMode = "all" | "select";
+
 export default function AdminMarketingScreen() {
   const { members } = useMembersStore();
   const [selectedCategory, setSelectedCategory] = useState<MessageCategory>("custom");
@@ -139,6 +146,9 @@ export default function AdminMarketingScreen() {
   const [lastAutoReminder, setLastAutoReminder] = useState<AutoReminderLog | null>(null);
   const [isSendingAuto, setIsSendingAuto] = useState<boolean>(false);
   const [loadingAutoState, setLoadingAutoState] = useState<boolean>(true);
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>("all");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+  const [memberSearch, setMemberSearch] = useState<string>("");
 
   useEffect(() => {
     const loadAutoState = async () => {
@@ -172,7 +182,64 @@ export default function AdminMarketingScreen() {
     const template = MESSAGE_TEMPLATES.find((t) => t.id === category);
     setMessage(template?.defaultMessage ?? "");
     setShowRecipients(false);
+    setRecipientMode("all");
+    setSelectedMemberIds(new Set());
+    setMemberSearch("");
     console.log("[Marketing] Selected category:", category);
+  }, []);
+
+  const finalRecipients = useMemo(() => {
+    if (recipientMode === "all") return eligibleMembers;
+    return eligibleMembers.filter((m) => selectedMemberIds.has(m.id));
+  }, [recipientMode, eligibleMembers, selectedMemberIds]);
+
+  const filteredEligibleMembers = useMemo(() => {
+    if (!memberSearch.trim()) return eligibleMembers;
+    const q = memberSearch.toLowerCase().trim();
+    return eligibleMembers.filter(
+      (m) =>
+        m.fullName.toLowerCase().includes(q) ||
+        m.phone.includes(q),
+    );
+  }, [eligibleMembers, memberSearch]);
+
+  const toggleMemberSelection = useCallback((memberId: string) => {
+    void Haptics.selectionAsync();
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) {
+        next.delete(memberId);
+      } else {
+        next.add(memberId);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAllFiltered = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      for (const m of filteredEligibleMembers) {
+        next.add(m.id);
+      }
+      return next;
+    });
+  }, [filteredEligibleMembers]);
+
+  const deselectAll = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedMemberIds(new Set());
+  }, []);
+
+  const handleRecipientModeChange = useCallback((mode: RecipientMode) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setRecipientMode(mode);
+    if (mode === "all") {
+      setSelectedMemberIds(new Set());
+      setMemberSearch("");
+    }
+    console.log("[Marketing] Recipient mode changed to:", mode);
   }, []);
 
   const toggleRecipients = useCallback(() => {
@@ -272,14 +339,18 @@ export default function AdminMarketingScreen() {
       return;
     }
 
-    if (eligibleMembers.length === 0) {
-      Alert.alert("No recipients", "No eligible members found for this message category. Members must have marketing texts enabled.");
+    if (finalRecipients.length === 0) {
+      if (recipientMode === "select") {
+        Alert.alert("No recipients selected", "Please select at least one member to send the message to.");
+      } else {
+        Alert.alert("No recipients", "No eligible members found for this message category. Members must have marketing texts enabled.");
+      }
       return;
     }
 
     Alert.alert(
       "Send marketing text",
-      `Send this message to ${eligibleMembers.length} member${eligibleMembers.length !== 1 ? "s" : ""}?\n\n"${message.trim().substring(0, 100)}${message.trim().length > 100 ? "..." : ""}"`,
+      `Send this message to ${finalRecipients.length} member${finalRecipients.length !== 1 ? "s" : ""}?\n\n"${message.trim().substring(0, 100)}${message.trim().length > 100 ? "..." : ""}"`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -289,13 +360,13 @@ export default function AdminMarketingScreen() {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
             try {
-              console.log("[Marketing] Sending message to", eligibleMembers.length, "members");
+              console.log("[Marketing] Sending message to", finalRecipients.length, "members");
               console.log("[Marketing] Message:", message.trim());
-              console.log("[Marketing] Recipients:", eligibleMembers.map((m) => m.phone));
+              console.log("[Marketing] Recipients:", finalRecipients.map((m) => m.phone));
 
               const { data, error } = await supabase.functions.invoke("send-marketing-sms", {
                 body: {
-                  recipients: eligibleMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
+                  recipients: finalRecipients.map((m) => ({ phone: m.phone, name: m.fullName })),
                   message: message.trim(),
                 },
               });
@@ -306,9 +377,11 @@ export default function AdminMarketingScreen() {
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert(
                 "Messages sent!",
-                `Your marketing text has been queued for ${eligibleMembers.length} member${eligibleMembers.length !== 1 ? "s" : ""}. Messages will be delivered shortly.`,
+                `Your marketing text has been queued for ${finalRecipients.length} member${finalRecipients.length !== 1 ? "s" : ""}. Messages will be delivered shortly.`,
               );
               setMessage("");
+              setSelectedMemberIds(new Set());
+              setRecipientMode("all");
               console.log("[Marketing] Messages sent successfully");
             } catch (error) {
               const msg = error instanceof Error ? error.message : String(error);
@@ -322,7 +395,7 @@ export default function AdminMarketingScreen() {
         },
       ],
     );
-  }, [eligibleMembers, message]);
+  }, [finalRecipients, message, recipientMode]);
 
   return (
     <>
@@ -411,19 +484,127 @@ export default function AdminMarketingScreen() {
             <Text style={styles.charCount}>{message.length} characters</Text>
           </View>
 
-          <Pressable
-            onPress={toggleRecipients}
-            style={({ pressed }) => [styles.recipientsToggle, pressed && { opacity: 0.8 }]}
-            testID="marketing-recipients-toggle"
-          >
-            <Users color="#F7C58B" size={16} />
-            <Text style={styles.recipientsToggleText}>
-              {eligibleMembers.length} recipient{eligibleMembers.length !== 1 ? "s" : ""} for this message
-            </Text>
-            {showRecipients ? <ChevronUp color="#C8AA94" size={16} /> : <ChevronDown color="#C8AA94" size={16} />}
-          </Pressable>
+          <View style={styles.recipientModeRow}>
+            <Pressable
+              onPress={() => handleRecipientModeChange("all")}
+              style={({ pressed }) => [
+                styles.recipientModeBtn,
+                recipientMode === "all" && styles.recipientModeBtnActive,
+                pressed && { opacity: 0.85 },
+              ]}
+              testID="marketing-mode-all"
+            >
+              <Users color={recipientMode === "all" ? "#1A120E" : "#C8AA94"} size={15} />
+              <Text style={[styles.recipientModeBtnText, recipientMode === "all" && styles.recipientModeBtnTextActive]}>
+                All ({eligibleMembers.length})
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleRecipientModeChange("select")}
+              style={({ pressed }) => [
+                styles.recipientModeBtn,
+                recipientMode === "select" && styles.recipientModeBtnActive,
+                pressed && { opacity: 0.85 },
+              ]}
+              testID="marketing-mode-select"
+            >
+              <UserCheck color={recipientMode === "select" ? "#1A120E" : "#C8AA94"} size={15} />
+              <Text style={[styles.recipientModeBtnText, recipientMode === "select" && styles.recipientModeBtnTextActive]}>
+                Select{selectedMemberIds.size > 0 ? ` (${selectedMemberIds.size})` : ""}
+              </Text>
+            </Pressable>
+          </View>
 
-          {showRecipients && (
+          {recipientMode === "select" && (
+            <View style={styles.memberSelectContainer}>
+              <View style={styles.memberSearchWrap}>
+                <Search color="#8E6D56" size={16} />
+                <TextInput
+                  value={memberSearch}
+                  onChangeText={setMemberSearch}
+                  placeholder="Search by name or phone..."
+                  placeholderTextColor="#8E6D56"
+                  style={styles.memberSearchInput}
+                  testID="marketing-member-search"
+                />
+                {memberSearch.length > 0 && (
+                  <Pressable onPress={() => setMemberSearch("")} hitSlop={8}>
+                    <X color="#8E6D56" size={16} />
+                  </Pressable>
+                )}
+              </View>
+
+              <View style={styles.memberSelectActions}>
+                <Pressable
+                  onPress={selectAllFiltered}
+                  style={({ pressed }) => [styles.selectActionBtn, pressed && { opacity: 0.7 }]}
+                  testID="marketing-select-all"
+                >
+                  <Text style={styles.selectActionText}>Select all{memberSearch.trim() ? " filtered" : ""}</Text>
+                </Pressable>
+                {selectedMemberIds.size > 0 && (
+                  <Pressable
+                    onPress={deselectAll}
+                    style={({ pressed }) => [styles.selectActionBtn, pressed && { opacity: 0.7 }]}
+                    testID="marketing-deselect-all"
+                  >
+                    <Text style={[styles.selectActionText, { color: "#EF4444" }]}>Deselect all</Text>
+                  </Pressable>
+                )}
+                <Text style={styles.selectedCountText}>
+                  {selectedMemberIds.size} selected
+                </Text>
+              </View>
+
+              <ScrollView style={styles.memberSelectList} nestedScrollEnabled>
+                {filteredEligibleMembers.length === 0 ? (
+                  <Text style={styles.noRecipientsText}>
+                    {memberSearch.trim() ? "No members match your search." : "No eligible members found."}
+                  </Text>
+                ) : (
+                  filteredEligibleMembers.map((m) => {
+                    const isChecked = selectedMemberIds.has(m.id);
+                    return (
+                      <Pressable
+                        key={m.id}
+                        onPress={() => toggleMemberSelection(m.id)}
+                        style={({ pressed }) => [
+                          styles.memberSelectRow,
+                          isChecked && styles.memberSelectRowChecked,
+                          pressed && { opacity: 0.8 },
+                        ]}
+                        testID={`marketing-member-${m.id}`}
+                      >
+                        <View style={[styles.memberCheckbox, isChecked && styles.memberCheckboxChecked]}>
+                          {isChecked && <Check color="#1A120E" size={13} strokeWidth={3} />}
+                        </View>
+                        <View style={styles.memberSelectInfo}>
+                          <Text style={styles.memberSelectName} numberOfLines={1}>{m.fullName}</Text>
+                          <Text style={styles.memberSelectPhone}>{m.phone}</Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
+          )}
+
+          {recipientMode === "all" && (
+            <Pressable
+              onPress={toggleRecipients}
+              style={({ pressed }) => [styles.recipientsToggle, pressed && { opacity: 0.8 }]}
+              testID="marketing-recipients-toggle"
+            >
+              <Users color="#F7C58B" size={16} />
+              <Text style={styles.recipientsToggleText}>
+                {eligibleMembers.length} recipient{eligibleMembers.length !== 1 ? "s" : ""} for this message
+              </Text>
+              {showRecipients ? <ChevronUp color="#C8AA94" size={16} /> : <ChevronDown color="#C8AA94" size={16} />}
+            </Pressable>
+          )}
+
+          {recipientMode === "all" && showRecipients && (
             <View style={styles.recipientsList}>
               {eligibleMembers.length === 0 ? (
                 <Text style={styles.noRecipientsText}>No eligible members found for this category.</Text>
@@ -449,7 +630,7 @@ export default function AdminMarketingScreen() {
             label={
               isSending
                 ? "Sending messages..."
-                : `Send to ${eligibleMembers.length} member${eligibleMembers.length !== 1 ? "s" : ""}`
+                : `Send to ${finalRecipients.length} member${finalRecipients.length !== 1 ? "s" : ""}`
             }
             onPress={handleSend}
             testID="marketing-send-button"
@@ -776,6 +957,121 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
     paddingTop: 6,
     textAlign: "center" as const,
+  },
+  memberCheckbox: {
+    alignItems: "center",
+    borderColor: "rgba(247, 197, 139, 0.3)",
+    borderRadius: 8,
+    borderWidth: 1.5,
+    height: 24,
+    justifyContent: "center",
+    width: 24,
+  },
+  memberCheckboxChecked: {
+    backgroundColor: "#F7C58B",
+    borderColor: "#F7C58B",
+  },
+  memberSearchInput: {
+    color: "#FFF7ED",
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  memberSearchWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.06)",
+    borderColor: "rgba(247, 197, 139, 0.15)",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  memberSelectActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  memberSelectContainer: {
+    gap: 10,
+  },
+  memberSelectInfo: {
+    flex: 1,
+    gap: 1,
+  },
+  memberSelectList: {
+    backgroundColor: "rgba(255, 247, 237, 0.03)",
+    borderColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 14,
+    borderWidth: 1,
+    maxHeight: 260,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  memberSelectName: {
+    color: "#FFF7ED",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  memberSelectPhone: {
+    color: "#C8AA94",
+    fontSize: 12,
+  },
+  memberSelectRow: {
+    alignItems: "center",
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  memberSelectRowChecked: {
+    backgroundColor: "rgba(247, 197, 139, 0.08)",
+  },
+  recipientModeBtn: {
+    alignItems: "center",
+    borderColor: "rgba(247, 197, 139, 0.15)",
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  recipientModeBtnActive: {
+    backgroundColor: "#F7C58B",
+    borderColor: "#F7C58B",
+  },
+  recipientModeBtnText: {
+    color: "#C8AA94",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+  recipientModeBtnTextActive: {
+    color: "#1A120E",
+  },
+  recipientModeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  selectActionBtn: {
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+  },
+  selectActionText: {
+    color: "#F7C58B",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  selectedCountText: {
+    color: "#8E6D56",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600" as const,
+    textAlign: "right" as const,
   },
   recipientsToggle: {
     alignItems: "center",
