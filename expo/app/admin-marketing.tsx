@@ -39,7 +39,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import { supabase } from "@/lib/supabase";
+import { trpcClient } from "@/lib/trpc";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -278,14 +278,14 @@ export default function AdminMarketingScreen() {
     try {
       console.log("[Marketing] Sending auto expiry reminders to", expiringMembers.length, "members");
 
-      const { data, error } = await supabase.functions.invoke("send-marketing-sms", {
-        body: {
-          recipients: expiringMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
-          message: reminderMessage,
-        },
+      const data = await trpcClient.sms.sendMarketing.mutate({
+        recipients: expiringMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
+        message: reminderMessage,
       });
 
-      if (error) throw new Error(error.message);
+      if (!data.success && data.failed > 0) {
+        console.warn(`[Marketing] Some auto-reminders failed: ${data.failed}/${data.total}`);
+      }
       console.log("[Marketing] Auto-reminder response:", data);
 
       const log: AutoReminderLog = {
@@ -364,15 +364,15 @@ export default function AdminMarketingScreen() {
               console.log("[Marketing] Message:", message.trim());
               console.log("[Marketing] Recipients:", finalRecipients.map((m) => m.phone));
 
-              const { data, error } = await supabase.functions.invoke("send-marketing-sms", {
-                body: {
-                  recipients: finalRecipients.map((m) => ({ phone: m.phone, name: m.fullName })),
-                  message: message.trim(),
-                },
+              const data = await trpcClient.sms.sendMarketing.mutate({
+                recipients: finalRecipients.map((m) => ({ phone: m.phone, name: m.fullName })),
+                message: message.trim(),
               });
 
-              if (error) throw new Error(error.message);
-              console.log("[Marketing] Supabase function response:", data);
+              if (!data.success && data.failed > 0) {
+                console.warn(`[Marketing] Some messages failed: ${data.failed}/${data.total}`);
+              }
+              console.log("[Marketing] Backend response:", data);
 
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert(
