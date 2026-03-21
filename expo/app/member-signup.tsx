@@ -17,7 +17,8 @@ import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
 interface SignupFormState {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phoneNumber: string;
   birthMonth: string;
   birthDay: string;
@@ -29,7 +30,8 @@ interface SignupFormState {
 type VerificationStatus = "idle" | "sending" | "sent" | "verified";
 
 const INITIAL_FORM: SignupFormState = {
-  fullName: "",
+  firstName: "",
+  lastName: "",
   phoneNumber: "",
   birthMonth: "",
   birthDay: "",
@@ -78,14 +80,15 @@ export default function MemberSignupScreen() {
   const canSendCode = useMemo<boolean>(() => {
     const phoneDigits = form.phoneNumber.replace(/[^\d]/g, "");
     return Boolean(
-      form.fullName.trim().length >= 2 &&
+      form.firstName.trim().length >= 1 &&
+        form.lastName.trim().length >= 1 &&
         phoneDigits.length >= 7 &&
         isValidBirthMonth(form.birthMonth) &&
         isValidBirthDay(form.birthDay) &&
         isValidBirthYear(form.birthYear) &&
         form.agreedToTerms,
     );
-  }, [form.birthYear, form.birthMonth, form.birthDay, form.fullName, form.phoneNumber, form.agreedToTerms]);
+  }, [form.birthYear, form.birthMonth, form.birthDay, form.firstName, form.lastName, form.phoneNumber, form.agreedToTerms]);
 
   const canVerify = useMemo<boolean>(() => form.code.trim().length === 6, [form.code]);
 
@@ -150,7 +153,7 @@ export default function MemberSignupScreen() {
 
       const member: MemberProfile = {
         id: `member-${Date.now()}`,
-        fullName: form.fullName.trim(),
+        fullName: `${form.firstName.trim()} ${form.lastName.trim()}`,
         phone: fullPhone,
         birthdate: `${form.birthMonth.trim().padStart(2, "0")}/${form.birthDay.trim().padStart(2, "0")}`,
         birthYear: form.birthYear.trim(),
@@ -192,13 +195,26 @@ export default function MemberSignupScreen() {
             copy="Fill in your details and verify your phone number to get started."
             title="Create your account"
           />
-          <InputField
-            label="Full name"
-            onChangeText={(value) => updateField("fullName", value)}
-            placeholder="Jisoo Kim"
-            testID="signup-name-input"
-            value={form.fullName}
-          />
+          <View style={styles.row}>
+            <View style={styles.rowItem}>
+              <InputField
+                label="First name"
+                onChangeText={(value) => updateField("firstName", value)}
+                placeholder="Jisoo"
+                testID="signup-firstname-input"
+                value={form.firstName}
+              />
+            </View>
+            <View style={styles.rowItem}>
+              <InputField
+                label="Last name"
+                onChangeText={(value) => updateField("lastName", value)}
+                placeholder="Kim"
+                testID="signup-lastname-input"
+                value={form.lastName}
+              />
+            </View>
+          </View>
           <PhoneInput
             countryCode={countryCode}
             onCountryCodeChange={setCountryCode}
