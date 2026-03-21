@@ -461,14 +461,84 @@ export default function AdminMemberDetailScreen() {
               </View>
             </View>
           </View>
+
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <TrendingUp color="#22C55E" size={18} />
+              <Text style={styles.statValue}>{stats.visitCount}</Text>
+              <Text style={styles.statLabel}>Visits</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Star color="#F7C58B" size={18} />
+              <Text style={styles.statValue}>{formatPoints(stats.totalEarned)}</Text>
+              <Text style={styles.statLabel}>Earned</Text>
+            </View>
+            <View style={styles.statCard}>
+              <CircleDollarSign color="#F87171" size={18} />
+              <Text style={styles.statValue}>{formatPoints(stats.totalRedeemed)}</Text>
+              <Text style={styles.statLabel}>Redeemed</Text>
+            </View>
+            <View style={styles.statCard}>
+              <CircleDollarSign color="#60A5FA" size={18} />
+              <Text style={styles.statValue}>${stats.totalSpent.toFixed(0)}</Text>
+              <Text style={styles.statLabel}>Total spent</Text>
+            </View>
+          </View>
+
+          {stats.lastVisit && (
+            <View style={styles.lastVisitRow}>
+              <Clock color="#C8AA94" size={14} />
+              <Text style={styles.lastVisitText}>Last visit: {formatDateTime(stats.lastVisit)}</Text>
+            </View>
+          )}
+
+          {stats.visitCount >= 5 && (
+            <View style={styles.regularBadge}>
+              <Flame color="#F59E0B" size={16} />
+              <Text style={styles.regularBadgeText}>
+                {stats.visitCount >= 20 ? "VIP Regular" : stats.visitCount >= 10 ? "Frequent Visitor" : "Regular Customer"}
+              </Text>
+            </View>
+          )}
         </CollapsiblePanel>
 
+        {foundMember.pointsHistory.length > 0 && (
+          <CollapsiblePanel
+            testID="detail-history-panel"
+            title="Points history"
+            copy={`${foundMember.pointsHistory.length} transaction${foundMember.pointsHistory.length !== 1 ? "s" : ""} — ${stats.earnedCount} earned, ${stats.redeemedCount} redeemed.`}
+            icon={Clock}
+          >
+            {foundMember.pointsHistory.slice(0, 10).map((entry) => (
+              <View key={entry.id} style={styles.historyRow}>
+                <View style={[styles.historyDot, entry.type === "redeemed" ? styles.historyDotRedeemed : undefined]} />
+                <View style={styles.historyContent}>
+                  <View style={styles.historyTopRow}>
+                    <Text style={styles.historyAmount}>
+                      {entry.type === "redeemed" ? "−" : "+"}{formatPoints(Math.abs(entry.amount))} pts
+                    </Text>
+                    {entry.type === "earned" && (
+                      <Text style={styles.historySpent}>${entry.dollarAmount.toFixed(2)}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.historyNote}>{entry.note}</Text>
+                  <Text style={styles.historyDate}>{formatDateTime(entry.addedAt)}</Text>
+                  {entry.type === "earned" && entry.expiresAt && (
+                    <Text style={styles.historyExpiry}>
+                      Expires: {formatDate(entry.expiresAt)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </CollapsiblePanel>
+        )}
+
         <CollapsiblePanel
-          testID="detail-edit-profile-panel"
-          title="Edit member profile"
-          copy="Edit this member's profile information including name, contact details, and birthday."
-          icon={Edit3}
-          iconColor="#60A5FA"
+          testID="detail-add-points-panel"
+          title="Add points"
+          copy={`Enter the sub-total (without tax & tips). Points auto-calculated at ${settings.pointsPerDollar} pts per $1.`}
+          icon={Star}
         >
           {!editMode ? (
             <Pressable
@@ -563,61 +633,6 @@ export default function AdminMemberDetailScreen() {
             </>
           )}
         </CollapsiblePanel>
-
-        <CollapsiblePanel
-          testID="detail-member-stats-panel"
-          title="Visit & activity stats"
-          copy="Activity summary and visit frequency for this member."
-          icon={TrendingUp}
-          iconColor="#22C55E"
-        >
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <TrendingUp color="#22C55E" size={18} />
-              <Text style={styles.statValue}>{stats.visitCount}</Text>
-              <Text style={styles.statLabel}>Visits</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Star color="#F7C58B" size={18} />
-              <Text style={styles.statValue}>{formatPoints(stats.totalEarned)}</Text>
-              <Text style={styles.statLabel}>Earned</Text>
-            </View>
-            <View style={styles.statCard}>
-              <CircleDollarSign color="#F87171" size={18} />
-              <Text style={styles.statValue}>{formatPoints(stats.totalRedeemed)}</Text>
-              <Text style={styles.statLabel}>Redeemed</Text>
-            </View>
-            <View style={styles.statCard}>
-              <CircleDollarSign color="#60A5FA" size={18} />
-              <Text style={styles.statValue}>${stats.totalSpent.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>Total spent</Text>
-            </View>
-          </View>
-
-          {stats.lastVisit && (
-            <View style={styles.lastVisitRow}>
-              <Clock color="#C8AA94" size={14} />
-              <Text style={styles.lastVisitText}>Last visit: {formatDateTime(stats.lastVisit)}</Text>
-            </View>
-          )}
-
-          {stats.visitCount >= 5 && (
-            <View style={styles.regularBadge}>
-              <Flame color="#F59E0B" size={16} />
-              <Text style={styles.regularBadgeText}>
-                {stats.visitCount >= 20 ? "VIP Regular" : stats.visitCount >= 10 ? "Frequent Visitor" : "Regular Customer"}
-              </Text>
-            </View>
-          )}
-        </CollapsiblePanel>
-
-        <CollapsiblePanel
-          testID="detail-add-points-panel"
-          title="Add points"
-          copy={`Enter the sub-total (without tax & tips). Points auto-calculated at ${settings.pointsPerDollar} pts per $1.`}
-          icon={Star}
-          defaultOpen={true}
-        >
           <InputField
             label="Sub-total amount ($) — exclude tax & tips"
             keyboardType="numeric"
@@ -762,6 +777,107 @@ export default function AdminMemberDetailScreen() {
         </CollapsiblePanel>
 
         <CollapsiblePanel
+          testID="detail-edit-profile-panel"
+          title="Edit member profile"
+          copy="Edit this member's profile information including name, contact details, and birthday."
+          icon={Edit3}
+          iconColor="#60A5FA"
+        >
+          {!editMode ? (
+            <Pressable
+              onPress={handleStartEdit}
+              style={({ pressed }) => [styles.editToggleButton, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
+              testID="detail-edit-profile-button"
+            >
+              <View style={styles.editToggleIconWrap}>
+                <Edit3 color="#60A5FA" size={20} />
+              </View>
+              <View style={styles.editToggleTextWrap}>
+                <Text style={styles.editToggleTitle}>Edit Profile</Text>
+                <Text style={styles.editToggleSubtitle}>Change name, contact info, or birthday</Text>
+              </View>
+            </Pressable>
+          ) : (
+            <>
+              <InputField
+                label="Full name"
+                onChangeText={setEditName}
+                placeholder="John Doe"
+                testID="detail-edit-name-input"
+                value={editName}
+              />
+              <InputField
+                label="Phone number"
+                keyboardType="phone-pad"
+                onChangeText={(v) => setEditPhone(formatPhone(v))}
+                placeholder="555-123-4567"
+                testID="detail-edit-phone-input"
+                value={editPhone}
+              />
+              <Text style={styles.editFieldLabel}>Birthday</Text>
+              <View style={styles.birthdayRow}>
+                <View style={styles.birthdayField}>
+                  <InputField
+                    label="Month"
+                    keyboardType="numeric"
+                    onChangeText={(v) => setEditBirthMonth(v.replace(/\D/g, "").slice(0, 2))}
+                    placeholder="MM"
+                    testID="detail-edit-birth-month"
+                    value={editBirthMonth}
+                  />
+                </View>
+                <View style={styles.birthdayField}>
+                  <InputField
+                    label="Day"
+                    keyboardType="numeric"
+                    onChangeText={(v) => setEditBirthDay(v.replace(/\D/g, "").slice(0, 2))}
+                    placeholder="DD"
+                    testID="detail-edit-birth-day"
+                    value={editBirthDay}
+                  />
+                </View>
+                <View style={styles.birthdayField}>
+                  <InputField
+                    label="Year"
+                    keyboardType="numeric"
+                    onChangeText={(v) => setEditBirthYear(v.replace(/\D/g, "").slice(0, 4))}
+                    placeholder="YYYY"
+                    testID="detail-edit-birth-year"
+                    value={editBirthYear}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.editIdNote}>
+                <ShieldCheck color="#F59E0B" size={16} />
+                <Text style={styles.editIdNoteText}>
+                  Verify member's real government-issued ID before changing birthday
+                </Text>
+              </View>
+
+              <View style={styles.editActions}>
+                <Pressable
+                  onPress={handleCancelEdit}
+                  style={({ pressed }) => [styles.editCancelButton, pressed && { opacity: 0.7 }]}
+                  testID="detail-edit-cancel-button"
+                >
+                  <X color="#C8AA94" size={16} />
+                  <Text style={styles.editCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSaveEdit}
+                  style={({ pressed }) => [styles.editSaveButton, pressed && { opacity: 0.8 }]}
+                  testID="detail-edit-save-button"
+                >
+                  <Save color="#1A120E" size={16} />
+                  <Text style={styles.editSaveText}>Save Changes</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </CollapsiblePanel>
+
+        <CollapsiblePanel
           testID="detail-delete-member-panel"
           title="Delete member"
           copy="Permanently delete this member's account. This action cannot be undone."
@@ -783,38 +899,6 @@ export default function AdminMemberDetailScreen() {
             <Text style={styles.deleteButtonText}>Delete {foundMember.fullName}'s Account</Text>
           </Pressable>
         </CollapsiblePanel>
-
-        {foundMember.pointsHistory.length > 0 && (
-          <CollapsiblePanel
-            testID="detail-history-panel"
-            title="Points history"
-            copy={`${foundMember.pointsHistory.length} transaction${foundMember.pointsHistory.length !== 1 ? "s" : ""} — ${stats.earnedCount} earned, ${stats.redeemedCount} redeemed.`}
-            icon={Clock}
-          >
-            {foundMember.pointsHistory.slice(0, 10).map((entry) => (
-              <View key={entry.id} style={styles.historyRow}>
-                <View style={[styles.historyDot, entry.type === "redeemed" ? styles.historyDotRedeemed : undefined]} />
-                <View style={styles.historyContent}>
-                  <View style={styles.historyTopRow}>
-                    <Text style={styles.historyAmount}>
-                      {entry.type === "redeemed" ? "−" : "+"}{formatPoints(Math.abs(entry.amount))} pts
-                    </Text>
-                    {entry.type === "earned" && (
-                      <Text style={styles.historySpent}>${entry.dollarAmount.toFixed(2)}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.historyNote}>{entry.note}</Text>
-                  <Text style={styles.historyDate}>{formatDateTime(entry.addedAt)}</Text>
-                  {entry.type === "earned" && entry.expiresAt && (
-                    <Text style={styles.historyExpiry}>
-                      Expires: {formatDate(entry.expiresAt)}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))}
-          </CollapsiblePanel>
-        )}
       </LoyaltyScreen>
     </>
   );
