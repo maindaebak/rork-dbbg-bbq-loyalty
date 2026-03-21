@@ -32,7 +32,7 @@ interface LoyaltyScreenProps {
   children: React.ReactNode;
   title?: string;
   subtitle: string;
-  eyebrow: string;
+  eyebrow: string | React.ReactNode;
   heroRight?: React.ReactNode;
   heroContent?: React.ReactNode;
 }
@@ -74,7 +74,7 @@ export function LoyaltyScreen({
           <View style={styles.heroCard} testID="loyalty-hero-card">
             <View style={styles.heroRow}>
               <View style={styles.heroTextWrap}>
-                <Text style={styles.eyebrow}>{eyebrow}</Text>
+                {typeof eyebrow === 'string' ? <Text style={styles.eyebrow}>{eyebrow}</Text> : eyebrow}
                 {title ? <Text style={styles.heroTitle}>{title}</Text> : null}
               </View>
               {heroRight ? <View style={styles.heroRight}>{heroRight}</View> : null}

@@ -61,7 +61,15 @@ export default function MemberDashboardScreen() {
         ),
       }} />
       <LoyaltyScreen
-        eyebrow={member?.fullName ? `Welcome to Dae Bak Bon Ga, ${member.fullName.split(" ")[0]}` : "Member dashboard"}
+        eyebrow={
+          member?.fullName ? (
+            <View style={styles.welcomeTextWrap}>
+              <Text style={styles.welcomeLine1}>Welcome to</Text>
+              <Text style={styles.welcomeLine2}>Dae Bak Bon Ga,</Text>
+              <Text style={styles.welcomeLine3}>{member.fullName.split(" ")[0]}</Text>
+            </View>
+          ) : "Member dashboard"
+        }
         subtitle="See your live tier, point balance, and redeemable rewards based on the latest admin settings."
         heroContent={
           <View style={styles.logoSection} testID="member-dashboard-logo">
@@ -660,5 +668,23 @@ const styles = StyleSheet.create({
     color: "#F7C58B",
     fontSize: 11,
     fontWeight: "600" as const,
+  },
+  welcomeTextWrap: {
+    gap: 2,
+  },
+  welcomeLine1: {
+    color: "#C8AA94",
+    fontSize: 14,
+    fontWeight: "600" as const,
+  },
+  welcomeLine2: {
+    color: "#F7C58B",
+    fontSize: 22,
+    fontWeight: "900" as const,
+  },
+  welcomeLine3: {
+    color: "#FFF7ED",
+    fontSize: 20,
+    fontWeight: "800" as const,
   },
 });
