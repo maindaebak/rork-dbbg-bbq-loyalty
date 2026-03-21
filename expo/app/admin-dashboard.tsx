@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import {
   ChevronRight,
+  ImageIcon,
   LogOut,
   Search,
   Settings,
@@ -140,6 +141,25 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Loyalty settings</Text>
               <Text style={styles.actionCaption}>Tiers, rewards, points per $</Text>
+            </View>
+            <ChevronRight color="#C8AA94" size={18} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              console.log("[AdminDashboard] Opening banner settings");
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/admin-settings");
+            }}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
+            testID="admin-go-banner"
+          >
+            <View style={styles.actionIcon}>
+              <ImageIcon color="#F7C58B" size={18} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Dashboard banner</Text>
+              <Text style={styles.actionCaption}>Update member dashboard image</Text>
             </View>
             <ChevronRight color="#C8AA94" size={18} />
           </Pressable>
