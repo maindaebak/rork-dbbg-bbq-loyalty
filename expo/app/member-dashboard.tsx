@@ -61,7 +61,7 @@ export default function MemberDashboardScreen() {
         ),
       }} />
       <LoyaltyScreen
-        eyebrow={member?.fullName ? `Welcome, ${member.fullName.split(" ")[0]}` : "Member dashboard"}
+        eyebrow={member?.fullName ? `Welcome to Dae Bak Bon Ga, ${member.fullName.split(" ")[0]}` : "Member dashboard"}
         subtitle="See your live tier, point balance, and redeemable rewards based on the latest admin settings."
         heroContent={
           <View style={styles.logoSection} testID="member-dashboard-logo">
