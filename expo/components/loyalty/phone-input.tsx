@@ -1,14 +1,18 @@
-import { ChevronDown } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import { ChevronDown, Search, X } from "lucide-react-native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   COUNTRY_CODES,
@@ -33,22 +37,31 @@ export function PhoneInput({
 }: PhoneInputProps) {
   const [pickerVisible, setPickerVisible] = useState<boolean>(false);
   const [search, setSearch] = useState<string>("");
+  const listRef = useRef<FlatList<CountryCode>>(null);
+  const insets = useSafeAreaInsets();
 
-  const filteredCodes = search.trim()
-    ? COUNTRY_CODES.filter(
-        (c) =>
-          c.code.toLowerCase().includes(search.toLowerCase()) ||
-          c.dial.includes(search),
-      )
-    : COUNTRY_CODES;
+  const filteredCodes = useMemo(() => {
+    if (!search.trim()) return COUNTRY_CODES;
+    const q = search.toLowerCase();
+    return COUNTRY_CODES.filter(
+      (c) =>
+        c.code.toLowerCase().includes(q) ||
+        c.dial.includes(q),
+    );
+  }, [search]);
+
+  const closePicker = useCallback(() => {
+    Keyboard.dismiss();
+    setPickerVisible(false);
+    setSearch("");
+  }, []);
 
   const handleSelect = useCallback(
     (cc: CountryCode) => {
       onCountryCodeChange(cc);
-      setPickerVisible(false);
-      setSearch("");
+      closePicker();
     },
-    [onCountryCodeChange],
+    [onCountryCodeChange, closePicker],
   );
 
   const handlePhoneChange = useCallback(
@@ -109,45 +122,67 @@ export function PhoneInput({
 
       <Modal
         animationType="slide"
-        onRequestClose={() => {
-          setPickerVisible(false);
-          setSearch("");
-        }}
+        onRequestClose={closePicker}
         transparent
         visible={pickerVisible}
+        statusBarTranslucent
       >
-        <Pressable
-          onPress={() => {
-            setPickerVisible(false);
-            setSearch("");
-          }}
-          style={pickerStyles.overlay}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={pickerStyles.keyboardAvoid}
         >
-          <Pressable style={pickerStyles.sheet} onPress={() => {}}>
-            <View style={pickerStyles.handle} />
-            <Text style={pickerStyles.title}>Select country code</Text>
-            <TextInput
-              autoFocus
-              onChangeText={setSearch}
-              placeholder="Search country or code..."
-              placeholderTextColor="#8E6D56"
-              style={pickerStyles.search}
-              testID={`${testID}-country-search`}
-              value={search}
-            />
-            <FlatList
-              data={filteredCodes}
-              keyExtractor={keyExtractor}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              style={pickerStyles.list}
-            />
+          <Pressable
+            onPress={closePicker}
+            style={pickerStyles.overlay}
+          >
+            <View style={[pickerStyles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+              <View style={pickerStyles.handle} />
+              <Text style={pickerStyles.title}>Select country code</Text>
+              <View style={pickerStyles.searchRow}>
+                <Search color="#8E6D56" size={16} />
+                <TextInput
+                  onChangeText={setSearch}
+                  placeholder="Search country or code..."
+                  placeholderTextColor="#8E6D56"
+                  style={pickerStyles.searchInput}
+                  testID={`${testID}-country-search`}
+                  value={search}
+                  returnKeyType="done"
+                />
+                {search.length > 0 && (
+                  <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                    <X color="#8E6D56" size={16} />
+                  </Pressable>
+                )}
+              </View>
+              <FlatList
+                ref={listRef}
+                data={filteredCodes}
+                keyExtractor={keyExtractor}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                style={pickerStyles.list}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                removeClippedSubviews={Platform.OS !== "web"}
+                getItemLayout={(_data, index) => ({
+                  length: ITEM_HEIGHT,
+                  offset: ITEM_HEIGHT * index,
+                  index,
+                })}
+                initialNumToRender={15}
+                maxToRenderPerBatch={20}
+                windowSize={7}
+              />
+            </View>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
+
+const ITEM_HEIGHT = 48;
 
 export { DEFAULT_COUNTRY_CODE, type CountryCode };
 
@@ -213,8 +248,8 @@ const pickerStyles = StyleSheet.create({
     borderRadius: 12,
     flexDirection: "row",
     gap: 12,
+    height: ITEM_HEIGHT,
     paddingHorizontal: 14,
-    paddingVertical: 13,
   },
   itemCode: {
     color: "#F8E7D0",
@@ -235,6 +270,9 @@ const pickerStyles = StyleSheet.create({
   itemSelected: {
     backgroundColor: "rgba(247, 197, 139, 0.12)",
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   list: {
     flex: 1,
   },
@@ -243,16 +281,23 @@ const pickerStyles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
-  search: {
+  searchRow: {
+    alignItems: "center",
     backgroundColor: "rgba(255, 247, 237, 0.06)",
     borderColor: "rgba(247, 197, 139, 0.12)",
     borderRadius: 14,
     borderWidth: 1,
-    color: "#FFF7ED",
-    fontSize: 15,
+    flexDirection: "row",
+    gap: 10,
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  searchInput: {
+    color: "#FFF7ED",
+    flex: 1,
+    fontSize: 15,
+    padding: 0,
   },
   sheet: {
     backgroundColor: "#1A120E",
@@ -261,7 +306,6 @@ const pickerStyles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     maxHeight: "70%",
-    paddingBottom: 30,
     paddingHorizontal: 18,
     paddingTop: 14,
   },
