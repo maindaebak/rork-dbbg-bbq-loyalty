@@ -57,3 +57,33 @@ export const supabase = new Proxy({} as SupabaseClient, {
     return value;
   },
 });
+
+let _verifyClient: SupabaseClient | null = null;
+
+export function getVerificationClient(): SupabaseClient {
+  if (_verifyClient) return _verifyClient;
+
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseAnonKey = getSupabaseKey();
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn("[Supabase] Cannot create verification client - missing config");
+    return getSupabaseClient();
+  }
+
+  console.log("[Supabase] Creating separate verification client");
+  _verifyClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      },
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  return _verifyClient;
+}
