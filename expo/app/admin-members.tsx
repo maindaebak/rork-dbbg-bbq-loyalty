@@ -968,6 +968,7 @@ export default function AdminMembersScreen() {
                         Redeem
                       </Text>
                     </Pressable>
+                  </View>
                 </View>
               ))}
             </CollapsiblePanel>
