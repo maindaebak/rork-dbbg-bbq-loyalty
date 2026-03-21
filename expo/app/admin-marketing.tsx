@@ -39,7 +39,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import { trpcClient } from "@/lib/trpc";
+import { sendMarketingSms } from "@/lib/api";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -324,10 +324,14 @@ function AdminMarketingContent() {
     try {
       console.log("[Marketing] Sending auto expiry reminders to", expiringMembers.length, "members");
 
-      const data = await trpcClient.sms.sendMarketing.mutate({
-        recipients: expiringMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
-        message: reminderMessage,
-      });
+      const data = await sendMarketingSms(
+        expiringMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
+        reminderMessage,
+      );
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       if (!data.success && data.failed > 0) {
         console.warn(`[Marketing] Some auto-reminders failed: ${data.failed}/${data.total}`);
@@ -410,10 +414,14 @@ function AdminMarketingContent() {
               console.log("[Marketing] Message:", message.trim());
               console.log("[Marketing] Recipients:", finalRecipients.map((m) => m.phone));
 
-              const data = await trpcClient.sms.sendMarketing.mutate({
-                recipients: finalRecipients.map((m) => ({ phone: m.phone, name: m.fullName })),
-                message: message.trim(),
-              });
+              const data = await sendMarketingSms(
+                finalRecipients.map((m) => ({ phone: m.phone, name: m.fullName })),
+                message.trim(),
+              );
+
+              if (data.error) {
+                throw new Error(data.error);
+              }
 
               if (!data.success && data.failed > 0) {
                 console.warn(`[Marketing] Some messages failed: ${data.failed}/${data.total}`);

@@ -187,6 +187,51 @@ export async function verifyPhoneOtp(phone: string, code: string): Promise<Verif
   }
 }
 
+interface MarketingRecipient {
+  phone: string;
+  name: string;
+}
+
+interface SendMarketingResponse {
+  success: boolean;
+  sent: number;
+  failed: number;
+  total: number;
+  results?: { phone: string; success: boolean; error?: string }[];
+  error?: string;
+}
+
+export async function sendMarketingSms(
+  recipients: MarketingRecipient[],
+  message: string,
+): Promise<SendMarketingResponse> {
+  try {
+    if (!isSupabaseConfigured()) {
+      console.error("[API] Supabase is not configured - cannot send marketing SMS");
+      return { success: false, sent: 0, failed: recipients.length, total: recipients.length, error: "SMS service is not configured." };
+    }
+
+    console.log(`[API] Sending marketing SMS via edge function to ${recipients.length} recipients`);
+    console.log(`[API] Message length: ${message.length}`);
+
+    const { data, error } = await supabase.functions.invoke("send-marketing-sms", {
+      body: { recipients, message },
+    });
+
+    if (error) {
+      console.error("[API] Edge function error:", error.message);
+      return { success: false, sent: 0, failed: recipients.length, total: recipients.length, error: error.message };
+    }
+
+    console.log("[API] Edge function response:", data);
+    return data as SendMarketingResponse;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[API] sendMarketingSms exception:", msg);
+    return { success: false, sent: 0, failed: recipients.length, total: recipients.length, error: msg };
+  }
+}
+
 export async function adminLogin(email: string, password: string): Promise<AdminLoginResponse> {
   try {
     console.log("[API] Admin login attempt for:", email);
