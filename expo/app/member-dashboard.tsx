@@ -80,11 +80,18 @@ export default function MemberDashboardScreen() {
         >
           <View style={styles.pointsCard}>
             <Text style={styles.pointsValue}>{formatPoints(points)}</Text>
-            <View style={styles.pointsMeta}>
-              <Star color="#1A120E" fill="#1A120E" size={16} />
-              <Text style={styles.pointsMetaText}>{`Earn ${settings.pointsPerDollar} points per $1 spent`}</Text>
+            <View style={styles.pointsCardRow}>
+              <View style={styles.pointsMeta}>
+                <Star color="#1A120E" fill="#1A120E" size={16} />
+                <Text style={styles.pointsMetaText}>{`Earn ${settings.pointsPerDollar} points per $1 spent`}</Text>
+              </View>
+              <View style={[styles.pointsTierBadge, { backgroundColor: currentTier?.accent ?? "#F59E0B" }]}>
+                <Flame color="#1A120E" size={14} />
+                <Text style={styles.pointsTierBadgeText}>{currentTier?.name ?? "Member"}</Text>
+              </View>
             </View>
           </View>
+          <MemberQRCode memberId={member?.id ?? ""} memberName={member?.fullName ?? ""} />
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -99,15 +106,6 @@ export default function MemberDashboardScreen() {
             <Text style={styles.tierCopy}>{`${formatPoints(points)} points collected so far`}</Text>
           </View>
           <TierRoadmap tiers={settings.tiers} currentPoints={points} currentTierId={currentTier?.id ?? ""} />
-        </CollapsiblePanel>
-
-        <CollapsiblePanel
-          testID="member-qr-panel"
-          title="Your member QR code"
-          copy="Show this QR code to staff for quick point lookup."
-          icon={QrCode}
-        >
-          <MemberQRCode memberId={member?.id ?? ""} memberName={member?.fullName ?? ""} />
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -381,15 +379,33 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 20,
   },
+  pointsCardRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   pointsMeta: {
     alignItems: "center",
-    alignSelf: "flex-start",
     backgroundColor: "rgba(26, 18, 14, 0.08)",
     borderRadius: 999,
     flexDirection: "row",
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  pointsTierBadge: {
+    alignItems: "center",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  pointsTierBadgeText: {
+    color: "#1A120E",
+    fontSize: 13,
+    fontWeight: "800" as const,
   },
   pointsMetaText: {
     color: "#1A120E",
