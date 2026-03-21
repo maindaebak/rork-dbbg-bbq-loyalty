@@ -70,6 +70,11 @@ export default function MemberDashboardScreen() {
           </View>
         }
       >
+        <View style={styles.logoSection} testID="member-dashboard-logo">
+          <View style={styles.logoContainer}>
+            <Image contentFit="contain" source={require("@/assets/images/DBBG_LOGO.png")} style={styles.logoImage} />
+          </View>
+        </View>
         <CollapsiblePanel
           testID="member-points-panel"
           title="Available points"
@@ -530,6 +535,24 @@ const styles = StyleSheet.create({
     color: "#C8AA94",
     fontSize: 13,
     textAlign: "center",
+  },
+  logoSection: {
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  logoContainer: {
+    alignItems: "center",
+    backgroundColor: "#FFF7ED",
+    borderRadius: 24,
+    height: 96,
+    justifyContent: "center",
+    overflow: "hidden",
+    padding: 10,
+    width: 96,
+  },
+  logoImage: {
+    height: 76,
+    width: 76,
   },
 
   tierRoadmapContainer: {
