@@ -535,10 +535,10 @@ export default function AdminMemberDetailScreen() {
         )}
 
         <CollapsiblePanel
-          testID="detail-add-points-panel"
-          title="Add points"
-          copy={`Enter the sub-total (without tax & tips). Points auto-calculated at ${settings.pointsPerDollar} pts per $1.`}
-          icon={Star}
+          testID="detail-edit-profile-panel"
+          title="Edit member profile"
+          copy="Change name, contact info, or birthday"
+          icon={Edit3}
         >
           {!editMode ? (
             <Pressable
@@ -633,6 +633,13 @@ export default function AdminMemberDetailScreen() {
             </>
           )}
         </CollapsiblePanel>
+
+        <CollapsiblePanel
+          testID="detail-add-points-panel"
+          title="Add points"
+          copy={`Enter the sub-total (without tax & tips). Points auto-calculated at ${settings.pointsPerDollar} pts per $1.`}
+          icon={Star}
+        >
           <InputField
             label="Sub-total amount ($) — exclude tax & tips"
             keyboardType="numeric"
