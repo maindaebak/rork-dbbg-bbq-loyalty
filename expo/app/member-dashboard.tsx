@@ -63,6 +63,13 @@ export default function MemberDashboardScreen() {
       <LoyaltyScreen
         eyebrow={member?.fullName ? `Welcome, ${member.fullName.split(" ")[0]}` : "Member dashboard"}
         subtitle="See your live tier, point balance, and redeemable rewards based on the latest admin settings."
+        heroContent={
+          <View style={styles.logoSection} testID="member-dashboard-logo">
+            <View style={styles.logoContainer}>
+              <Image contentFit="contain" source={require("@/assets/images/DBBG_LOGO.png")} style={styles.logoImage} />
+            </View>
+          </View>
+        }
         heroRight={
           <View style={styles.badge} testID="member-dashboard-badge">
             <Flame color="#F7C58B" size={18} />
@@ -70,11 +77,6 @@ export default function MemberDashboardScreen() {
           </View>
         }
       >
-        <View style={styles.logoSection} testID="member-dashboard-logo">
-          <View style={styles.logoContainer}>
-            <Image contentFit="contain" source={require("@/assets/images/DBBG_LOGO.png")} style={styles.logoImage} />
-          </View>
-        </View>
         <CollapsiblePanel
           testID="member-points-panel"
           title="Available points"

@@ -34,6 +34,7 @@ interface LoyaltyScreenProps {
   subtitle: string;
   eyebrow: string;
   heroRight?: React.ReactNode;
+  heroContent?: React.ReactNode;
 }
 
 interface ActionButtonProps {
@@ -60,6 +61,7 @@ export function LoyaltyScreen({
   subtitle,
   eyebrow,
   heroRight,
+  heroContent,
 }: LoyaltyScreenProps) {
   return (
     <LinearGradient colors={["#120A08", "#24110B", "#090909"]} style={styles.screen}>
@@ -77,6 +79,7 @@ export function LoyaltyScreen({
               </View>
               {heroRight ? <View style={styles.heroRight}>{heroRight}</View> : null}
             </View>
+            {heroContent ? heroContent : null}
             <Text style={styles.heroSubtitle}>{subtitle}</Text>
           </View>
           {children}
