@@ -16,7 +16,7 @@ import {
   Users,
   X,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Component, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -44,6 +44,42 @@ import { useMembersStore, type StoredMember } from "@/providers/members-store-pr
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class MarketingErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[Marketing] ErrorBoundary caught:", error.message, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: "#120A08", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <Stack.Screen options={{ title: "Marketing texts", headerTintColor: "#FFF7ED" }} />
+          <Text style={{ color: "#F7C58B", fontSize: 18, fontWeight: "800" as const, marginBottom: 12, textAlign: "center" as const }}>Something went wrong</Text>
+          <Text style={{ color: "#C8AA94", fontSize: 14, textAlign: "center" as const, marginBottom: 20, lineHeight: 20 }}>{this.state.error?.message ?? "Unknown error"}</Text>
+          <Pressable
+            onPress={() => this.setState({ hasError: false, error: null })}
+            style={{ backgroundColor: "#F7C58B", borderRadius: 14, paddingHorizontal: 24, paddingVertical: 14 }}
+          >
+            <Text style={{ color: "#1A120E", fontSize: 15, fontWeight: "800" as const }}>Try again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 const AUTO_REMINDER_STORAGE_KEY = "dbbg-auto-expiry-reminder";
@@ -137,7 +173,17 @@ function getEligibleMembers(
 type RecipientMode = "all" | "select";
 
 export default function AdminMarketingScreen() {
+  return (
+    <MarketingErrorBoundary>
+      <AdminMarketingContent />
+    </MarketingErrorBoundary>
+  );
+}
+
+function AdminMarketingContent() {
   const { members } = useMembersStore();
+  
+  console.log("[Marketing] Render. Members count:", members?.length ?? "undefined");
   const [selectedCategory, setSelectedCategory] = useState<MessageCategory>("custom");
   const [message, setMessage] = useState<string>("");
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -396,6 +442,17 @@ export default function AdminMarketingScreen() {
       ],
     );
   }, [finalRecipients, message, recipientMode]);
+
+  if (!members) {
+    console.error("[Marketing] members is undefined/null");
+    return (
+      <View style={{ flex: 1, backgroundColor: "#120A08", justifyContent: "center", alignItems: "center" }}>
+        <Stack.Screen options={{ title: "Marketing texts", headerTintColor: "#FFF7ED" }} />
+        <ActivityIndicator color="#F7C58B" size="large" />
+        <Text style={{ color: "#C8AA94", marginTop: 12, fontSize: 14 }}>Loading members...</Text>
+      </View>
+    );
+  }
 
   return (
     <>
