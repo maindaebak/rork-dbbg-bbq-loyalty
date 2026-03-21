@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
-import { Clock, Flame, Gift, Info, LogOut, QrCode, Star, User } from "lucide-react-native";
+import { Clock, Flame, Gift, Info, LogOut, Star, User } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, LayoutAnimation, Platform, UIManager } from "react-native";
 
@@ -63,7 +63,6 @@ export default function MemberDashboardScreen() {
       <LoyaltyScreen
         eyebrow={member?.fullName ? `Welcome, ${member.fullName.split(" ")[0]}` : "Member dashboard"}
         subtitle="See your live tier, point balance, and redeemable rewards based on the latest admin settings."
-        bannerImageUrl={settings.bannerImageUrl || undefined}
         heroRight={
           <View style={styles.badge} testID="member-dashboard-badge">
             <Flame color="#F7C58B" size={18} />
@@ -306,22 +305,8 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
 }
 
 function MemberQRCode({ memberId, memberName }: { memberId: string; memberName: string }) {
-  const [showQR, setShowQR] = useState<boolean>(false);
   const qrData = `dbbg-member:${memberId}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrData)}&bgcolor=1A120E&color=F7C58B&margin=8`;
-
-  if (!showQR) {
-    return (
-      <Pressable
-        onPress={() => setShowQR(true)}
-        style={({ pressed }) => [styles.showQrButton, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
-        testID="member-show-qr-button"
-      >
-        <QrCode color="#1A120E" size={20} />
-        <Text style={styles.showQrText}>Tap to reveal your QR code</Text>
-      </Pressable>
-    );
-  }
 
   return (
     <View style={styles.qrContainer} testID="member-qr-code">
@@ -335,13 +320,6 @@ function MemberQRCode({ memberId, memberName }: { memberId: string; memberName: 
       </View>
       <Text style={styles.qrName}>{memberName}</Text>
       <Text style={styles.qrHint}>Staff will scan this to look up your account</Text>
-      <Pressable
-        onPress={() => setShowQR(false)}
-        style={({ pressed }) => [styles.hideQrButton, pressed && { opacity: 0.7 }]}
-        testID="member-hide-qr-button"
-      >
-        <Text style={styles.hideQrText}>Hide QR code</Text>
-      </Pressable>
     </View>
   );
 }
@@ -524,21 +502,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800" as const,
   },
-  showQrButton: {
-    alignItems: "center",
-    backgroundColor: "#F7C58B",
-    borderRadius: 20,
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  showQrText: {
-    color: "#1A120E",
-    fontSize: 15,
-    fontWeight: "800" as const,
-  },
+
   qrContainer: {
     alignItems: "center",
     gap: 12,
@@ -567,14 +531,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
   },
-  hideQrButton: {
-    paddingVertical: 6,
-  },
-  hideQrText: {
-    color: "#F7C58B",
-    fontSize: 13,
-    fontWeight: "700" as const,
-  },
+
   tierRoadmapContainer: {
     gap: 12,
   },

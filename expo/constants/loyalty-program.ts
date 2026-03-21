@@ -16,7 +16,6 @@ export interface LoyaltyProgramSettings {
   rewards: LoyaltyReward[];
   termsAndConditions: string;
   tierBonusEnabled: boolean;
-  bannerImageUrl: string;
 }
 
 const DEFAULT_TERMS = `Terms and Conditions - Dae Bak Bon Ga Loyalty Program
@@ -77,7 +76,6 @@ export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
     },
   ],
   tierBonusEnabled: true,
-  bannerImageUrl: "",
   rewards: [
     {
       id: "banchan",
