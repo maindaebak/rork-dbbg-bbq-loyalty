@@ -47,6 +47,9 @@ Dae Bak Bon Ga reserves the right to modify these terms at any time. Members wil
 9. LIMITATION OF LIABILITY
 Dae Bak Bon Ga is not responsible for any technical issues that may affect point balances or reward redemption. The restaurant's decision on all loyalty program matters is final.
 
+10. MARKETING COMMUNICATIONS
+By signing up for the Dae Bak Bon Ga Loyalty Program, you agree to receive promotional text messages including special deals, birthday rewards, and points expiration reminders. You may opt out of marketing messages at any time through your profile settings in the app. Opting out of marketing messages will not affect your membership status or earned rewards.
+
 By signing up, you acknowledge that you have read, understood, and agree to these terms and conditions.`;
 
 export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {

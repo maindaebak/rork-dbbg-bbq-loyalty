@@ -39,7 +39,7 @@ const INITIAL_FORM: SignupFormState = {
   birthYear: "",
   code: "",
   agreedToTerms: false,
-  marketingOptIn: false,
+  marketingOptIn: true,
 };
 
 function isValidBirthMonth(value: string): boolean {
@@ -280,18 +280,7 @@ export default function MemberSignupScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={() => setForm((prev) => ({ ...prev, marketingOptIn: !prev.marketingOptIn }))}
-            style={styles.termsRow}
-            testID="signup-marketing-checkbox"
-          >
-            <View style={[styles.checkbox, form.marketingOptIn && styles.checkboxChecked]}>
-              {form.marketingOptIn && <CheckCircle2 color="#1A120E" size={14} />}
-            </View>
-            <Text style={styles.termsText}>
-              I'd like to receive promotional text messages about special deals, birthday rewards, and points reminders
-            </Text>
-          </Pressable>
+
 
           <Pressable
             onPress={() => router.push("/terms-conditions")}
