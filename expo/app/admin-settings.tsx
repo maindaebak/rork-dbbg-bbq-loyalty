@@ -4,14 +4,17 @@ import {
   CircleDollarSign,
   FileText,
   Gift,
+  ImageIcon,
   Plus,
   RotateCcw,
   Save,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Image } from "expo-image";
 
 import {
   ActionButton,
@@ -37,6 +40,7 @@ export default function AdminSettingsScreen() {
   const [rewards, setRewards] = useState<LoyaltyReward[]>(settings.rewards);
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
   const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
+  const [bannerImageUrl, setBannerImageUrl] = useState<string>(settings.bannerImageUrl ?? "");
 
   useEffect(() => {
     setPointsPerDollar(String(settings.pointsPerDollar));
@@ -44,6 +48,7 @@ export default function AdminSettingsScreen() {
     setRewards(settings.rewards);
     setTermsText(settings.termsAndConditions ?? "");
     setTierBonusEnabled(settings.tierBonusEnabled ?? true);
+    setBannerImageUrl(settings.bannerImageUrl ?? "");
   }, [settings]);
 
   const handleSave = useCallback(() => {
@@ -58,12 +63,13 @@ export default function AdminSettingsScreen() {
       rewards,
       termsAndConditions: termsText,
       tierBonusEnabled,
+      bannerImageUrl: bannerImageUrl.trim(),
     };
     console.log("[AdminSettings] Saving settings", next);
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [pointsPerDollar, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
+  }, [bannerImageUrl, pointsPerDollar, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -304,6 +310,50 @@ export default function AdminSettingsScreen() {
           </Pressable>
         </Panel>
 
+        <Panel testID="admin-banner-panel">
+          <SectionTitle
+            copy="Set a banner image URL that displays on the member dashboard."
+            title="Dashboard Banner"
+          />
+          <View style={styles.bannerEditorWrap}>
+            <View style={styles.bannerEditorHeader}>
+              <ImageIcon color="#F7C58B" size={14} />
+              <Text style={styles.bannerEditorLabel}>Image URL</Text>
+            </View>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              onChangeText={setBannerImageUrl}
+              placeholder="https://example.com/image.jpg"
+              placeholderTextColor="#8E6D56"
+              style={styles.bannerUrlInput}
+              testID="admin-banner-url-input"
+              value={bannerImageUrl}
+            />
+            {bannerImageUrl.trim().length > 0 && (
+              <View style={styles.bannerPreviewWrap}>
+                <Text style={styles.bannerPreviewLabel}>Preview</Text>
+                <View style={styles.bannerPreviewContainer}>
+                  <Image
+                    source={{ uri: bannerImageUrl.trim() }}
+                    style={styles.bannerPreviewImage}
+                    contentFit="cover"
+                    testID="admin-banner-preview"
+                  />
+                  <Pressable
+                    onPress={() => setBannerImageUrl("")}
+                    style={({ pressed }) => [styles.bannerRemoveBtn, pressed && { opacity: 0.7 }]}
+                    testID="admin-banner-remove"
+                  >
+                    <X color="#FFF7ED" size={14} />
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        </Panel>
+
         <Panel testID="admin-terms-panel">
           <SectionTitle
             copy="Edit the terms and conditions that members must agree to when signing up."
@@ -504,5 +554,59 @@ const styles = StyleSheet.create({
     color: "#F7C58B",
     fontSize: 13,
     fontWeight: "800" as const,
+  },
+  bannerEditorWrap: {
+    gap: 10,
+  },
+  bannerEditorHeader: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 6,
+  },
+  bannerEditorLabel: {
+    color: "#F8E7D0",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+  bannerUrlInput: {
+    backgroundColor: "rgba(255, 247, 237, 0.06)",
+    borderColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 16,
+    borderWidth: 1,
+    color: "#FFF7ED",
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  bannerPreviewWrap: {
+    gap: 8,
+  },
+  bannerPreviewLabel: {
+    color: "#C8AA94",
+    fontSize: 12,
+    fontWeight: "600" as const,
+  },
+  bannerPreviewContainer: {
+    borderColor: "rgba(247, 197, 139, 0.18)",
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden" as const,
+    position: "relative" as const,
+  },
+  bannerPreviewImage: {
+    borderRadius: 16,
+    height: 160,
+    width: "100%",
+  },
+  bannerRemoveBtn: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(239, 68, 68, 0.8)",
+    borderRadius: 999,
+    height: 28,
+    justifyContent: "center" as const,
+    position: "absolute" as const,
+    right: 8,
+    top: 8,
+    width: 28,
   },
 });

@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { ChevronDown, ChevronRight, Gift, type LucideIcon } from "lucide-react-native";
@@ -30,10 +31,11 @@ export interface RewardItem {
 
 interface LoyaltyScreenProps {
   children: React.ReactNode;
-  title: string;
+  title?: string;
   subtitle: string;
   eyebrow: string;
   heroRight?: React.ReactNode;
+  bannerImageUrl?: string;
 }
 
 interface ActionButtonProps {
@@ -60,6 +62,7 @@ export function LoyaltyScreen({
   subtitle,
   eyebrow,
   heroRight,
+  bannerImageUrl,
 }: LoyaltyScreenProps) {
   return (
     <LinearGradient colors={["#120A08", "#24110B", "#090909"]} style={styles.screen}>
@@ -73,10 +76,20 @@ export function LoyaltyScreen({
             <View style={styles.heroRow}>
               <View style={styles.heroTextWrap}>
                 <Text style={styles.eyebrow}>{eyebrow}</Text>
-                <Text style={styles.heroTitle}>{title}</Text>
+                {title ? <Text style={styles.heroTitle}>{title}</Text> : null}
               </View>
               {heroRight ? <View style={styles.heroRight}>{heroRight}</View> : null}
             </View>
+            {bannerImageUrl ? (
+              <View style={styles.bannerWrap}>
+                <Image
+                source={{ uri: bannerImageUrl }}
+                style={styles.bannerImage}
+                contentFit="cover"
+                testID="loyalty-banner-image"
+              />
+              </View>
+            ) : null}
             <Text style={styles.heroSubtitle}>{subtitle}</Text>
           </View>
           {children}
@@ -505,5 +518,15 @@ const styles = StyleSheet.create({
     color: "#C8AA94",
     fontSize: 13,
     marginTop: 3,
+  },
+  bannerWrap: {
+    borderRadius: 16,
+    overflow: "hidden" as const,
+    marginTop: 4,
+  },
+  bannerImage: {
+    borderRadius: 16,
+    height: 180,
+    width: "100%",
   },
 });

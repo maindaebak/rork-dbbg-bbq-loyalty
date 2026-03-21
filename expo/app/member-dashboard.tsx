@@ -63,7 +63,7 @@ export default function MemberDashboardScreen() {
       <LoyaltyScreen
         eyebrow={member?.fullName ? `Welcome, ${member.fullName.split(" ")[0]}` : "Member dashboard"}
         subtitle="See your live tier, point balance, and redeemable rewards based on the latest admin settings."
-        title="Your grill-night rewards."
+        bannerImageUrl={settings.bannerImageUrl || undefined}
         heroRight={
           <View style={styles.badge} testID="member-dashboard-badge">
             <Flame color="#F7C58B" size={18} />

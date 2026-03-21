@@ -34,6 +34,7 @@ function sanitizeSettings(input: LoyaltyProgramSettings): LoyaltyProgramSettings
     })),
     termsAndConditions: input.termsAndConditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
     tierBonusEnabled: input.tierBonusEnabled ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tierBonusEnabled,
+    bannerImageUrl: input.bannerImageUrl ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.bannerImageUrl,
   };
 }
 
@@ -44,6 +45,7 @@ interface DbLoyaltySettings {
   rewards: LoyaltyReward[] | null;
   terms_and_conditions: string | null;
   tier_bonus_enabled: boolean | null;
+  banner_image_url: string | null;
   updated_at: string;
 }
 
@@ -54,6 +56,7 @@ function dbSettingsToLocal(db: DbLoyaltySettings): LoyaltyProgramSettings {
     rewards: (db.rewards ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.rewards) as LoyaltyReward[],
     termsAndConditions: db.terms_and_conditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
     tierBonusEnabled: db.tier_bonus_enabled ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tierBonusEnabled,
+    bannerImageUrl: db.banner_image_url ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.bannerImageUrl,
   };
 }
 
@@ -113,6 +116,7 @@ export const [LoyaltyProgramProvider, useLoyaltyProgram] = createContextHook(() 
           rewards: sanitized.rewards as unknown as Record<string, unknown>[],
           terms_and_conditions: sanitized.termsAndConditions,
           tier_bonus_enabled: sanitized.tierBonusEnabled,
+          banner_image_url: sanitized.bannerImageUrl,
           updated_at: new Date().toISOString(),
         });
 
