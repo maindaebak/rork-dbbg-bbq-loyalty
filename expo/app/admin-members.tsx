@@ -538,33 +538,11 @@ export default function AdminMembersScreen() {
         }
       >
         <CollapsiblePanel
-          testID="admin-search-panel"
-          title="Search by phone"
-          copy="Enter the member's phone number to look up their account."
-          icon={Search}
-          defaultOpen={true}
-        >
-          <PhoneInput
-            countryCode={searchCountryCode}
-            onCountryCodeChange={setSearchCountryCode}
-            phoneNumber={searchPhone}
-            onPhoneNumberChange={setSearchPhone}
-            testID="admin-search-phone-input"
-          />
-          <ActionButton
-            icon={Search}
-            label="Search member"
-            onPress={handleSearch}
-            testID="admin-search-button"
-            variant="primary"
-          />
-        </CollapsiblePanel>
-
-        <CollapsiblePanel
           testID="admin-name-search-panel"
           title="Search by name"
           copy="Search members by their first or last name."
           icon={Users}
+          defaultOpen={true}
         >
           <InputField
             label="Member name"
@@ -612,6 +590,28 @@ export default function AdminMembersScreen() {
               ))}
             </View>
           )}
+        </CollapsiblePanel>
+
+        <CollapsiblePanel
+          testID="admin-search-panel"
+          title="Search by phone"
+          copy="Enter the member's phone number to look up their account."
+          icon={Search}
+        >
+          <PhoneInput
+            countryCode={searchCountryCode}
+            onCountryCodeChange={setSearchCountryCode}
+            phoneNumber={searchPhone}
+            onPhoneNumberChange={setSearchPhone}
+            testID="admin-search-phone-input"
+          />
+          <ActionButton
+            icon={Search}
+            label="Search member"
+            onPress={handleSearch}
+            testID="admin-search-button"
+            variant="primary"
+          />
         </CollapsiblePanel>
 
         <CollapsiblePanel
