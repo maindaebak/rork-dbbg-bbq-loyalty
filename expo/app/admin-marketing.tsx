@@ -12,18 +12,21 @@ import {
   Sparkles,
   Users,
 } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   LayoutAnimation,
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   UIManager,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   ActionButton,
@@ -36,6 +39,15 @@ import { useMembersStore, type StoredMember } from "@/providers/members-store-pr
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const AUTO_REMINDER_STORAGE_KEY = "dbbg-auto-expiry-reminder";
+const AUTO_REMINDER_ENABLED_KEY = "dbbg-auto-expiry-enabled";
+
+interface AutoReminderLog {
+  lastSentAt: string;
+  memberIds: string[];
+  count: number;
 }
 
 type MessageCategory = "custom" | "birthday" | "points_expiring" | "special_deal";
@@ -123,6 +135,29 @@ export default function AdminMarketingScreen() {
   const [message, setMessage] = useState<string>("");
   const [isSending, setIsSending] = useState<boolean>(false);
   const [showRecipients, setShowRecipients] = useState<boolean>(false);
+  const [autoEnabled, setAutoEnabled] = useState<boolean>(false);
+  const [lastAutoReminder, setLastAutoReminder] = useState<AutoReminderLog | null>(null);
+  const [isSendingAuto, setIsSendingAuto] = useState<boolean>(false);
+  const [loadingAutoState, setLoadingAutoState] = useState<boolean>(true);
+
+  useEffect(() => {
+    const loadAutoState = async () => {
+      try {
+        const [enabledRaw, logRaw] = await Promise.all([
+          AsyncStorage.getItem(AUTO_REMINDER_ENABLED_KEY),
+          AsyncStorage.getItem(AUTO_REMINDER_STORAGE_KEY),
+        ]);
+        if (enabledRaw !== null) setAutoEnabled(JSON.parse(enabledRaw));
+        if (logRaw) setLastAutoReminder(JSON.parse(logRaw));
+        console.log("[Marketing] Loaded auto-reminder state, enabled:", enabledRaw, "log:", logRaw);
+      } catch (err) {
+        console.error("[Marketing] Failed to load auto-reminder state:", err);
+      } finally {
+        setLoadingAutoState(false);
+      }
+    };
+    void loadAutoState();
+  }, []);
 
   const optedInCount = useMemo(() => members.filter((m) => m.marketingOptIn).length, [members]);
 
@@ -144,6 +179,92 @@ export default function AdminMarketingScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowRecipients((prev) => !prev);
   }, []);
+
+  const expiringMembers = useMemo(() => {
+    return getEligibleMembers(members, "points_expiring");
+  }, [members]);
+
+  const alreadySentToday = useMemo(() => {
+    if (!lastAutoReminder) return false;
+    const lastDate = new Date(lastAutoReminder.lastSentAt).toDateString();
+    const today = new Date().toDateString();
+    return lastDate === today;
+  }, [lastAutoReminder]);
+
+  const handleToggleAuto = useCallback(async (value: boolean) => {
+    setAutoEnabled(value);
+    try {
+      await AsyncStorage.setItem(AUTO_REMINDER_ENABLED_KEY, JSON.stringify(value));
+      console.log("[Marketing] Auto-reminder toggled:", value);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (err) {
+      console.error("[Marketing] Failed to save auto state:", err);
+    }
+  }, []);
+
+  const doSendAutoReminder = useCallback(async () => {
+    setIsSendingAuto(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const reminderMessage = "\u23F0 Your Dae Bak Bon Ga loyalty points are expiring soon! Visit us before they expire and redeem your rewards. Don't let your hard-earned points go to waste!";
+
+    try {
+      console.log("[Marketing] Sending auto expiry reminders to", expiringMembers.length, "members");
+
+      const { data, error } = await supabase.functions.invoke("send-marketing-sms", {
+        body: {
+          recipients: expiringMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
+          message: reminderMessage,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      console.log("[Marketing] Auto-reminder response:", data);
+
+      const log: AutoReminderLog = {
+        lastSentAt: new Date().toISOString(),
+        memberIds: expiringMembers.map((m) => m.id),
+        count: expiringMembers.length,
+      };
+      await AsyncStorage.setItem(AUTO_REMINDER_STORAGE_KEY, JSON.stringify(log));
+      setLastAutoReminder(log);
+
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Reminders sent!",
+        `Expiry reminder sent to ${expiringMembers.length} member${expiringMembers.length !== 1 ? "s" : ""} with points expiring within 30 days.`,
+      );
+      console.log("[Marketing] Auto expiry reminders sent successfully");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Marketing] Auto-reminder send error:", msg);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Failed to send", msg);
+    } finally {
+      setIsSendingAuto(false);
+    }
+  }, [expiringMembers]);
+
+  const handleSendAutoReminder = useCallback(async () => {
+    if (expiringMembers.length === 0) {
+      Alert.alert("No members", "No opted-in members have points expiring within 30 days.");
+      return;
+    }
+
+    if (alreadySentToday) {
+      Alert.alert(
+        "Already sent today",
+        `Expiry reminders were already sent today to ${lastAutoReminder?.count ?? 0} member(s). Send again?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Send again", onPress: () => void doSendAutoReminder() },
+        ],
+      );
+      return;
+    }
+
+    void doSendAutoReminder();
+  }, [expiringMembers, alreadySentToday, lastAutoReminder, doSendAutoReminder]);
 
   const handleSend = useCallback(() => {
     if (!message.trim()) {
@@ -336,6 +457,102 @@ export default function AdminMarketingScreen() {
           />
         </Panel>
 
+        <Panel testID="marketing-auto-panel">
+          <SectionTitle
+            copy="Automatically text members whose points expire within 30 days."
+            title="Expiry auto-reminders"
+          />
+
+          <View style={styles.autoToggleRow}>
+            <View style={styles.autoToggleInfo}>
+              <View style={[styles.autoIconWrap, { backgroundColor: autoEnabled ? "rgba(34, 197, 94, 0.12)" : "rgba(142, 109, 86, 0.12)" }]}>
+                <Clock color={autoEnabled ? "#22C55E" : "#8E6D56"} size={18} />
+              </View>
+              <View style={styles.autoToggleTextWrap}>
+                <Text style={styles.autoToggleLabel}>Auto expiry reminders</Text>
+                <Text style={styles.autoToggleCaption}>
+                  {autoEnabled
+                    ? "Enabled — reminder will be sent to members with expiring points"
+                    : "Disabled — no automatic reminders"}
+                </Text>
+              </View>
+            </View>
+            {loadingAutoState ? (
+              <ActivityIndicator color="#F7C58B" size="small" />
+            ) : (
+              <Switch
+                value={autoEnabled}
+                onValueChange={handleToggleAuto}
+                trackColor={{ false: "rgba(142, 109, 86, 0.3)", true: "rgba(34, 197, 94, 0.4)" }}
+                thumbColor={autoEnabled ? "#22C55E" : "#8E6D56"}
+                testID="marketing-auto-toggle"
+              />
+            )}
+          </View>
+
+          {autoEnabled && (
+            <>
+              <View style={styles.autoStatsRow}>
+                <View style={styles.autoStatCard}>
+                  <Text style={styles.autoStatValue}>{expiringMembers.length}</Text>
+                  <Text style={styles.autoStatLabel}>Members with{"\n"}expiring points</Text>
+                </View>
+                <View style={styles.autoStatCard}>
+                  <Text style={styles.autoStatValue}>
+                    {lastAutoReminder
+                      ? new Date(lastAutoReminder.lastSentAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                      : "Never"}
+                  </Text>
+                  <Text style={styles.autoStatLabel}>Last{"\n"}reminder sent</Text>
+                </View>
+              </View>
+
+              {alreadySentToday && (
+                <View style={styles.sentTodayBadge}>
+                  <Sparkles color="#22C55E" size={14} />
+                  <Text style={styles.sentTodayText}>
+                    Sent today to {lastAutoReminder?.count ?? 0} member{(lastAutoReminder?.count ?? 0) !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+              )}
+
+              <Pressable
+                onPress={handleSendAutoReminder}
+                disabled={isSendingAuto || expiringMembers.length === 0}
+                style={({ pressed }) => [
+                  styles.autoSendBtn,
+                  (isSendingAuto || expiringMembers.length === 0) && styles.autoSendBtnDisabled,
+                  pressed && !isSendingAuto && expiringMembers.length > 0 && { opacity: 0.85, transform: [{ scale: 0.985 }] },
+                ]}
+                testID="marketing-auto-send-button"
+              >
+                {isSendingAuto ? (
+                  <ActivityIndicator color="#1A120E" size="small" />
+                ) : (
+                  <Send color={expiringMembers.length === 0 ? "#8E6D56" : "#1A120E"} size={16} />
+                )}
+                <Text style={[
+                  styles.autoSendBtnText,
+                  expiringMembers.length === 0 && { color: "#8E6D56" },
+                ]}>
+                  {isSendingAuto
+                    ? "Sending reminders..."
+                    : expiringMembers.length === 0
+                      ? "No members with expiring points"
+                      : `Send reminder to ${expiringMembers.length} member${expiringMembers.length !== 1 ? "s" : ""}`}
+                </Text>
+              </Pressable>
+
+              <View style={styles.autoHint}>
+                <Bell color="#F59E0B" size={13} />
+                <Text style={styles.autoHintText}>
+                  To fully automate this, set up a Supabase pg_cron job that calls the "auto-expiry-reminder" edge function daily. See your Supabase dashboard under Database → Extensions → pg_cron.
+                </Text>
+              </View>
+            </>
+          )}
+        </Panel>
+
         <Panel testID="marketing-info-panel">
           <View style={styles.infoNote}>
             <Bell color="#F59E0B" size={16} />
@@ -350,6 +567,120 @@ export default function AdminMarketingScreen() {
 }
 
 const styles = StyleSheet.create({
+  autoHint: {
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.06)",
+    borderColor: "rgba(245, 158, 11, 0.12)",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  autoHintText: {
+    color: "#C8AA94",
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  autoIconWrap: {
+    alignItems: "center",
+    borderRadius: 12,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  autoSendBtn: {
+    alignItems: "center",
+    backgroundColor: "#F7C58B",
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  autoSendBtnDisabled: {
+    backgroundColor: "rgba(247, 197, 139, 0.15)",
+  },
+  autoSendBtnText: {
+    color: "#1A120E",
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  autoStatCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 14,
+  },
+  autoStatLabel: {
+    color: "#C8AA94",
+    fontSize: 11,
+    fontWeight: "600" as const,
+    textAlign: "center" as const,
+  },
+  autoStatValue: {
+    color: "#FFF7ED",
+    fontSize: 18,
+    fontWeight: "900" as const,
+  },
+  autoStatsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  autoToggleCaption: {
+    color: "#C8AA94",
+    fontSize: 12,
+  },
+  autoToggleInfo: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
+  },
+  autoToggleLabel: {
+    color: "#FFF7ED",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  autoToggleRow: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 14,
+  },
+  autoToggleTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  sentTodayBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.08)",
+    borderColor: "rgba(34, 197, 94, 0.2)",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  sentTodayText: {
+    color: "#22C55E",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
   charCount: {
     color: "#8E6D56",
     fontSize: 12,
