@@ -1,8 +1,8 @@
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Clock, Flame, Gift, Info, LogOut, QrCode, Star, User } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View, LayoutAnimation, Platform, UIManager } from "react-native";
 
 import { CollapsiblePanel, LoyaltyScreen, RewardCard } from "@/components/loyalty/ui";
 import { useAuth } from "@/providers/auth-provider";
@@ -10,6 +10,11 @@ import { Alert } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
+import { ChevronDown, ChevronUp, Lock, Check } from "lucide-react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 function formatPoints(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
@@ -93,6 +98,7 @@ export default function MemberDashboardScreen() {
             <Text style={styles.tierName}>{currentTier?.name ?? "Member"}</Text>
             <Text style={styles.tierCopy}>{`${formatPoints(points)} points collected so far`}</Text>
           </View>
+          <TierRoadmap tiers={settings.tiers} currentPoints={points} currentTierId={currentTier?.id ?? ""} />
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -203,6 +209,101 @@ export default function MemberDashboardScreen() {
         </CollapsiblePanel>
       </LoyaltyScreen>
     </>
+  );
+}
+
+function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof import("@/constants/loyalty-program").DEFAULT_LOYALTY_PROGRAM_SETTINGS.tiers; currentPoints: number; currentTierId: string }) {
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const sortedTiers = useMemo(() => [...tiers].sort((a, b) => a.minPoints - b.minPoints), [tiers]);
+  const currentIndex = useMemo(() => sortedTiers.findIndex(t => t.id === currentTierId), [sortedTiers, currentTierId]);
+
+  const toggleExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(prev => !prev);
+  }, []);
+
+  return (
+    <View style={styles.tierRoadmapContainer}>
+      <Pressable
+        onPress={toggleExpanded}
+        style={({ pressed }) => [styles.tierRoadmapToggle, pressed && { opacity: 0.8 }]}
+        testID="tier-roadmap-toggle"
+      >
+        <Text style={styles.tierRoadmapToggleText}>View all tiers</Text>
+        {expanded ? <ChevronUp color="#F7C58B" size={18} /> : <ChevronDown color="#F7C58B" size={18} />}
+      </Pressable>
+
+      {expanded && (
+        <View style={styles.tierRoadmapList}>
+          {sortedTiers.map((tier, index) => {
+            const isCurrentTier = tier.id === currentTierId;
+            const isReached = currentPoints >= tier.minPoints;
+            const isNext = index === currentIndex + 1;
+            const pointsNeeded = tier.minPoints - currentPoints;
+
+            return (
+              <View key={tier.id} style={styles.tierRoadmapRow}>
+                <View style={styles.tierRoadmapTrack}>
+                  <View style={[
+                    styles.tierRoadmapDot,
+                    { backgroundColor: isReached ? tier.accent : "rgba(255,247,237,0.12)" },
+                    isCurrentTier && styles.tierRoadmapDotActive,
+                  ]}>
+                    {isReached && <Check color="#1A120E" size={12} />}
+                    {!isReached && <Lock color="#C8AA94" size={10} />}
+                  </View>
+                  {index < sortedTiers.length - 1 && (
+                    <View style={[
+                      styles.tierRoadmapLine,
+                      { backgroundColor: isReached && index < currentIndex ? sortedTiers[index + 1]?.accent ?? "#F7C58B" : "rgba(255,247,237,0.08)" },
+                    ]} />
+                  )}
+                </View>
+                <View style={[
+                  styles.tierRoadmapInfo,
+                  isCurrentTier && { borderColor: tier.accent, borderWidth: 1 },
+                ]}>
+                  <View style={styles.tierRoadmapHeader}>
+                    <Text style={[
+                      styles.tierRoadmapTierName,
+                      isCurrentTier && { color: tier.accent },
+                    ]}>{tier.name}</Text>
+                    {isCurrentTier && (
+                      <View style={[styles.tierRoadmapCurrentBadge, { backgroundColor: tier.accent }]}>
+                        <Text style={styles.tierRoadmapCurrentBadgeText}>Current</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.tierRoadmapPoints}>
+                    {tier.minPoints === 0
+                      ? "Starting tier"
+                      : isReached
+                        ? `Reached at ${formatPoints(tier.minPoints)} pts`
+                        : `${formatPoints(pointsNeeded)} more pts needed`}
+                  </Text>
+                  {isNext && pointsNeeded > 0 && (
+                    <View style={styles.tierProgressBarWrap}>
+                      <View style={styles.tierProgressBarBg}>
+                        <View style={[
+                          styles.tierProgressBarFill,
+                          {
+                            backgroundColor: tier.accent,
+                            width: `${Math.min(100, Math.max(5, ((currentPoints - sortedTiers[currentIndex]?.minPoints) / (tier.minPoints - sortedTiers[currentIndex]?.minPoints)) * 100))}%`,
+                          },
+                        ]} />
+                      </View>
+                    </View>
+                  )}
+                  {tier.bonusPoints > 0 && (
+                    <Text style={styles.tierRoadmapBonus}>+{tier.bonusPoints} bonus pts on tier-up</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -457,5 +558,109 @@ const styles = StyleSheet.create({
     color: "#F7C58B",
     fontSize: 13,
     fontWeight: "700" as const,
+  },
+  tierRoadmapContainer: {
+    gap: 12,
+  },
+  tierRoadmapToggle: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(247, 197, 139, 0.08)",
+    borderColor: "rgba(247, 197, 139, 0.18)",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  tierRoadmapToggleText: {
+    color: "#F7C58B",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+  tierRoadmapList: {
+    gap: 0,
+  },
+  tierRoadmapRow: {
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 72,
+  },
+  tierRoadmapTrack: {
+    alignItems: "center",
+    width: 28,
+  },
+  tierRoadmapDot: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+    zIndex: 1,
+  },
+  tierRoadmapDotActive: {
+    borderColor: "rgba(255,255,255,0.25)",
+    borderWidth: 2,
+  },
+  tierRoadmapLine: {
+    flex: 1,
+    width: 2,
+    borderRadius: 1,
+    marginVertical: 2,
+  },
+  tierRoadmapInfo: {
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.08)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    gap: 6,
+    marginBottom: 8,
+    padding: 12,
+  },
+  tierRoadmapHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  tierRoadmapTierName: {
+    color: "#FFF7ED",
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  tierRoadmapCurrentBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  tierRoadmapCurrentBadgeText: {
+    color: "#1A120E",
+    fontSize: 10,
+    fontWeight: "800" as const,
+    textTransform: "uppercase" as const,
+  },
+  tierRoadmapPoints: {
+    color: "#C8AA94",
+    fontSize: 13,
+  },
+  tierProgressBarWrap: {
+    marginTop: 2,
+  },
+  tierProgressBarBg: {
+    backgroundColor: "rgba(255, 247, 237, 0.08)",
+    borderRadius: 4,
+    height: 6,
+    overflow: "hidden" as const,
+    width: "100%",
+  },
+  tierProgressBarFill: {
+    borderRadius: 4,
+    height: 6,
+  },
+  tierRoadmapBonus: {
+    color: "#F7C58B",
+    fontSize: 11,
+    fontWeight: "600" as const,
   },
 });
