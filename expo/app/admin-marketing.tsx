@@ -31,6 +31,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
+import { supabase } from "@/lib/supabase";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -171,7 +172,15 @@ export default function AdminMarketingScreen() {
               console.log("[Marketing] Message:", message.trim());
               console.log("[Marketing] Recipients:", eligibleMembers.map((m) => m.phone));
 
-              await new Promise((resolve) => setTimeout(resolve, 1500));
+              const { data, error } = await supabase.functions.invoke("send-marketing-sms", {
+                body: {
+                  recipients: eligibleMembers.map((m) => ({ phone: m.phone, name: m.fullName })),
+                  message: message.trim(),
+                },
+              });
+
+              if (error) throw new Error(error.message);
+              console.log("[Marketing] Supabase function response:", data);
 
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert(
