@@ -149,7 +149,7 @@ export default function AdminDashboardScreen() {
             onPress={() => {
               console.log("[AdminDashboard] Opening banner settings");
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/admin-settings");
+              router.push("/admin-banner");
             }}
             style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
             testID="admin-go-banner"
