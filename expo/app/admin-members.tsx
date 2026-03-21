@@ -5,14 +5,12 @@ import { Stack } from "expo-router";
 import {
   Calendar,
   Camera,
-  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   Clock,
   Edit3,
   Flame,
   Gift,
-  MessageSquareMore,
   Minus,
   Phone,
   QrCode,
@@ -36,7 +34,7 @@ import {
   Panel,
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
-import { sendSmsCode, verifySmsCode } from "@/lib/api";
+
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
 
@@ -108,13 +106,7 @@ export default function AdminMembersScreen() {
   const [nameSearchResults, setNameSearchResults] = useState<StoredMember[]>([]);
   const [nameSearchPerformed, setNameSearchPerformed] = useState<boolean>(false);
 
-  const [redeemVerifyRewardId, setRedeemVerifyRewardId] = useState<string | null>(null);
-  const [redeemVerifyRewardTitle, setRedeemVerifyRewardTitle] = useState<string>("");
-  const [redeemVerifyRewardPoints, setRedeemVerifyRewardPoints] = useState<number>(0);
-  const [redeemVerifyStep, setRedeemVerifyStep] = useState<"idle" | "sending" | "sent" | "verifying">("idle");
-  const [redeemVerifyCode, setRedeemVerifyCode] = useState<string>("");
-  const [isSendingRedeemCode, setIsSendingRedeemCode] = useState<boolean>(false);
-  const [isVerifyingRedeem, setIsVerifyingRedeem] = useState<boolean>(false);
+
 
   const [nativePermission, nativeRequestPermission] = useCameraPermissions();
   const permission: PermissionResponse | null = Platform.OS !== "web" ? nativePermission : null;
@@ -462,7 +454,7 @@ export default function AdminMembersScreen() {
     );
   }, [activePoints, foundMember, members, removeAmount, removeNote, removePoints]);
 
-  const handleStartRedeemVerify = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
+  const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
 
     if (activePoints < rewardPoints) {
@@ -473,99 +465,32 @@ export default function AdminMembersScreen() {
       return;
     }
 
-    setRedeemVerifyRewardId(rewardId);
-    setRedeemVerifyRewardTitle(rewardTitle);
-    setRedeemVerifyRewardPoints(rewardPoints);
-    setRedeemVerifyStep("idle");
-    setRedeemVerifyCode("");
-    console.log("[AdminMembers] Started redeem verify flow for", rewardTitle);
-  }, [activePoints, foundMember]);
+    Alert.alert(
+      "Confirm redemption",
+      `Redeem "${rewardTitle}" for ${foundMember.fullName}?\n\n${formatPoints(rewardPoints)} points will be deducted.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Redeem",
+          style: "default",
+          onPress: () => {
+            removePoints(foundMember.id, rewardPoints, `Redeemed: ${rewardTitle}`);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+              "Reward redeemed!",
+              `"${rewardTitle}" has been redeemed for ${foundMember.fullName}. ${formatPoints(rewardPoints)} points deducted.`,
+            );
 
-  const handleSendRedeemCode = useCallback(async () => {
-    if (!foundMember) return;
-    setIsSendingRedeemCode(true);
-    setRedeemVerifyStep("sending");
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    try {
-      console.log("[AdminMembers] Sending redeem verification SMS to:", foundMember.phone);
-      const result = await sendSmsCode(foundMember.phone);
-      console.log("[AdminMembers] SMS result:", JSON.stringify(result));
-
-      if (!result.success) {
-        throw new Error(result.error ?? "Failed to send verification code.");
-      }
-
-      setRedeemVerifyStep("sent");
-      Alert.alert("Code sent", `A 6-digit verification code was sent to ${foundMember.fullName}'s phone.`);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error("[AdminMembers] Redeem SMS error:", msg);
-      setRedeemVerifyStep("idle");
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Failed to send code", msg);
-    } finally {
-      setIsSendingRedeemCode(false);
-    }
-  }, [foundMember]);
-
-  const handleVerifyAndRedeem = useCallback(async () => {
-    if (!foundMember || !redeemVerifyRewardId) return;
-    if (redeemVerifyCode.trim().length !== 6) {
-      Alert.alert("Invalid code", "Enter the 6-digit verification code from the member's phone.");
-      return;
-    }
-
-    setIsVerifyingRedeem(true);
-    setRedeemVerifyStep("verifying");
-    try {
-      console.log("[AdminMembers] Verifying redeem code for:", foundMember.phone);
-      const result = await verifySmsCode(foundMember.phone, redeemVerifyCode);
-      console.log("[AdminMembers] Verify result:", JSON.stringify(result));
-
-      if (!result.success) {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Verification failed", "The code is incorrect. Please try again.");
-        setRedeemVerifyStep("sent");
-        return;
-      }
-
-      removePoints(foundMember.id, redeemVerifyRewardPoints, `Redeemed: ${redeemVerifyRewardTitle}`);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        "Reward redeemed!",
-        `"${redeemVerifyRewardTitle}" has been redeemed for ${foundMember.fullName}. ${formatPoints(redeemVerifyRewardPoints)} points deducted.`,
-      );
-
-      const updated = members.find((m) => m.id === foundMember.id);
-      if (updated) {
-        setFoundMember({ ...updated, points: Math.max(0, updated.points - redeemVerifyRewardPoints), pointsHistory: [...updated.pointsHistory] });
-      }
-      console.log("[AdminMembers] Redeemed reward", redeemVerifyRewardTitle, "for member", foundMember.id);
-
-      setRedeemVerifyRewardId(null);
-      setRedeemVerifyRewardTitle("");
-      setRedeemVerifyRewardPoints(0);
-      setRedeemVerifyStep("idle");
-      setRedeemVerifyCode("");
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Please try again.";
-      console.error("[AdminMembers] Redeem verify error:", msg);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Verification failed", msg);
-      setRedeemVerifyStep("sent");
-    } finally {
-      setIsVerifyingRedeem(false);
-    }
-  }, [foundMember, members, redeemVerifyCode, redeemVerifyRewardId, redeemVerifyRewardPoints, redeemVerifyRewardTitle, removePoints]);
-
-  const handleCancelRedeem = useCallback(() => {
-    setRedeemVerifyRewardId(null);
-    setRedeemVerifyRewardTitle("");
-    setRedeemVerifyRewardPoints(0);
-    setRedeemVerifyStep("idle");
-    setRedeemVerifyCode("");
-  }, []);
+            const updated = members.find((m) => m.id === foundMember.id);
+            if (updated) {
+              setFoundMember({ ...updated, points: Math.max(0, updated.points - rewardPoints), pointsHistory: [...updated.pointsHistory] });
+            }
+            console.log("[AdminMembers] Redeemed reward", rewardTitle, "for member", foundMember.id);
+          },
+        },
+      ],
+    );
+  }, [activePoints, foundMember, members, removePoints]);
 
   return (
     <>
@@ -1030,7 +955,7 @@ export default function AdminMembersScreen() {
                       <Text style={styles.redeemCost}>{formatPoints(reward.points)} pts required</Text>
                     </View>
                     <Pressable
-                      onPress={() => handleStartRedeemVerify(reward.id, reward.title, reward.points)}
+                      onPress={() => handleRedeemReward(reward.id, reward.title, reward.points)}
                       style={({ pressed }) => [
                         reward.canRedeem ? styles.redeemButton : styles.redeemButtonDisabled,
                         pressed && reward.canRedeem && { opacity: 0.8, transform: [{ scale: 0.96 }] },
@@ -1043,72 +968,6 @@ export default function AdminMembersScreen() {
                         Redeem
                       </Text>
                     </Pressable>
-                  </View>
-
-                  {redeemVerifyRewardId === reward.id && (
-                    <View style={styles.redeemVerifySection}>
-                      <View style={styles.redeemVerifyBanner}>
-                        <MessageSquareMore color="#F59E0B" size={16} />
-                        <Text style={styles.redeemVerifyBannerText}>
-                          Send a verification code to {foundMember?.fullName}'s phone to confirm this redemption.
-                        </Text>
-                      </View>
-
-                      {(redeemVerifyStep === "idle" || redeemVerifyStep === "sending") && (
-                        <Pressable
-                          onPress={handleSendRedeemCode}
-                          style={({ pressed }) => [styles.sendVerifyButton, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
-                          testID={`admin-redeem-send-code-${reward.id}`}
-                        >
-                          <MessageSquareMore color="#1A120E" size={16} />
-                          <Text style={styles.sendVerifyButtonText}>
-                            {isSendingRedeemCode ? "Sending code..." : "Send verification to member"}
-                          </Text>
-                        </Pressable>
-                      )}
-
-                      {(redeemVerifyStep === "sent" || redeemVerifyStep === "verifying") && (
-                        <>
-                          <InputField
-                            label="Enter 6-digit code from member"
-                            keyboardType="numeric"
-                            onChangeText={(v) => setRedeemVerifyCode(v.replace(/\D/g, "").slice(0, 6))}
-                            placeholder="Enter 6-digit code"
-                            testID={`admin-redeem-code-input-${reward.id}`}
-                            value={redeemVerifyCode}
-                          />
-                          <View style={styles.redeemVerifyActions}>
-                            <Pressable
-                              onPress={handleSendRedeemCode}
-                              style={({ pressed }) => [styles.resendCodeButton, pressed && { opacity: 0.7 }]}
-                              testID={`admin-redeem-resend-${reward.id}`}
-                            >
-                              <MessageSquareMore color="#C8AA94" size={14} />
-                              <Text style={styles.resendCodeText}>Resend</Text>
-                            </Pressable>
-                            <Pressable
-                              onPress={handleVerifyAndRedeem}
-                              style={({ pressed }) => [styles.verifyRedeemButton, pressed && { opacity: 0.8 }]}
-                              testID={`admin-redeem-verify-${reward.id}`}
-                            >
-                              <CheckCircle2 color="#1A120E" size={16} />
-                              <Text style={styles.verifyRedeemButtonText}>
-                                {isVerifyingRedeem ? "Verifying..." : "Verify & Redeem"}
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </>
-                      )}
-
-                      <Pressable
-                        onPress={handleCancelRedeem}
-                        style={({ pressed }) => [styles.cancelRedeemButton, pressed && { opacity: 0.7 }]}
-                        testID={`admin-redeem-cancel-${reward.id}`}
-                      >
-                        <Text style={styles.cancelRedeemText}>Cancel</Text>
-                      </Pressable>
-                    </View>
-                  )}
                 </View>
               ))}
             </CollapsiblePanel>
@@ -1947,89 +1806,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800" as const,
   },
-  redeemVerifySection: {
-    backgroundColor: "rgba(245, 158, 11, 0.04)",
-    borderColor: "rgba(245, 158, 11, 0.15)",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 12,
-    marginTop: 8,
-    padding: 14,
-  },
-  redeemVerifyBanner: {
-    alignItems: "center",
-    backgroundColor: "rgba(245, 158, 11, 0.08)",
-    borderColor: "rgba(245, 158, 11, 0.2)",
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  redeemVerifyBannerText: {
-    color: "#FCD34D",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600" as const,
-    lineHeight: 18,
-  },
-  sendVerifyButton: {
-    alignItems: "center",
-    backgroundColor: "#F7C58B",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  sendVerifyButtonText: {
-    color: "#1A120E",
-    fontSize: 14,
-    fontWeight: "800" as const,
-  },
-  redeemVerifyActions: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "flex-end",
-  },
-  resendCodeButton: {
-    alignItems: "center",
-    borderColor: "rgba(247, 197, 139, 0.18)",
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  resendCodeText: {
-    color: "#C8AA94",
-    fontSize: 13,
-    fontWeight: "700" as const,
-  },
-  verifyRedeemButton: {
-    alignItems: "center",
-    backgroundColor: "#F7C58B",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  verifyRedeemButtonText: {
-    color: "#1A120E",
-    fontSize: 14,
-    fontWeight: "800" as const,
-  },
-  cancelRedeemButton: {
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  cancelRedeemText: {
-    color: "#C8AA94",
-    fontSize: 13,
-    fontWeight: "700" as const,
-  },
+
 });
