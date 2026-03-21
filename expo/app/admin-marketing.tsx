@@ -177,7 +177,7 @@ export default function AdminMarketingScreen() {
   );
 
   const handleSelectCategory = useCallback((category: MessageCategory) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (Platform.OS !== "web") LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedCategory(category);
     const template = MESSAGE_TEMPLATES.find((t) => t.id === category);
     setMessage(template?.defaultMessage ?? "");
@@ -233,7 +233,7 @@ export default function AdminMarketingScreen() {
   }, []);
 
   const handleRecipientModeChange = useCallback((mode: RecipientMode) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (Platform.OS !== "web") LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setRecipientMode(mode);
     if (mode === "all") {
       setSelectedMemberIds(new Set());
@@ -243,7 +243,7 @@ export default function AdminMarketingScreen() {
   }, []);
 
   const toggleRecipients = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (Platform.OS !== "web") LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowRecipients((prev) => !prev);
   }, []);
 
