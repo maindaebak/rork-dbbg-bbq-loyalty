@@ -35,6 +35,7 @@ import {
   LoyaltyScreen,
   Panel,
 } from "@/components/loyalty/ui";
+import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
 import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
@@ -86,6 +87,7 @@ export default function AdminMembersScreen() {
   const { findMemberByPhone, getMemberById, addPoints, removePoints, members, getActivePoints, updateMemberProfile, deleteMember } = useMembersStore();
   const { settings } = useLoyaltyProgram();
   const [searchPhone, setSearchPhone] = useState<string>("");
+  const [searchCountryCode, setSearchCountryCode] = useState<CountryCode>(DEFAULT_COUNTRY_CODE);
   const [foundMember, setFoundMember] = useState<StoredMember | null>(null);
   const [searchPerformed, setSearchPerformed] = useState<boolean>(false);
   const [dollarAmount, setDollarAmount] = useState<string>("");
@@ -225,13 +227,14 @@ export default function AdminMembersScreen() {
 
   const handleSearch = useCallback(() => {
     const digits = searchPhone.replace(/\D/g, "");
-    console.log("[AdminMembers] Searching for phone", digits);
-    if (digits.length !== 10) {
-      Alert.alert("Invalid phone", "Please enter a valid 10-digit phone number.");
+    console.log("[AdminMembers] Searching for phone", digits, "with country code", searchCountryCode.dial);
+    if (digits.length < 4) {
+      Alert.alert("Invalid phone", "Please enter a valid phone number.");
       return;
     }
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const member = findMemberByPhone(digits);
+    const fullNumber = searchCountryCode.dial.replace("+", "") + digits;
+    const member = findMemberByPhone(fullNumber);
     setFoundMember(member ?? null);
     setSearchPerformed(true);
     setDollarAmount("");
@@ -240,11 +243,11 @@ export default function AdminMembersScreen() {
     setRemoveAmount("");
     setRemoveNote("");
     if (!member) {
-      console.log("[AdminMembers] No member found for", digits);
+      console.log("[AdminMembers] No member found for", fullNumber);
     } else {
       console.log("[AdminMembers] Found member:", member.fullName);
     }
-  }, [findMemberByPhone, searchPhone]);
+  }, [findMemberByPhone, searchCountryCode, searchPhone]);
 
   const handleOpenScanner = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -616,13 +619,12 @@ export default function AdminMembersScreen() {
           icon={Search}
           defaultOpen={true}
         >
-          <InputField
-            label="Phone number"
-            keyboardType="phone-pad"
-            onChangeText={(v) => setSearchPhone(formatPhone(v))}
-            placeholder="555-123-4567"
+          <PhoneInput
+            countryCode={searchCountryCode}
+            onCountryCodeChange={setSearchCountryCode}
+            phoneNumber={searchPhone}
+            onPhoneNumberChange={setSearchPhone}
             testID="admin-search-phone-input"
-            value={searchPhone}
           />
           <ActionButton
             icon={Search}
