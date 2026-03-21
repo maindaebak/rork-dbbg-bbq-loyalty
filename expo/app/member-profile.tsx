@@ -1,6 +1,8 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
 import {
+  Bell,
+  BellOff,
   CheckCircle2,
   Info,
   MessageSquareMore,
@@ -21,11 +23,30 @@ import {
 } from "@/components/loyalty/ui";
 import { sendSmsCode, verifySmsCode } from "@/lib/api";
 import { useAuth } from "@/providers/auth-provider";
+import { useMembersStore } from "@/providers/members-store-provider";
 
 type DeleteStep = "idle" | "sending" | "code-sent" | "verifying";
 
 export default function MemberProfileScreen() {
   const { member, deleteAccount } = useAuth();
+  const { findMemberByPhone, updateMemberProfile } = useMembersStore();
+
+  const storedMember = member?.phone ? findMemberByPhone(member.phone) : undefined;
+  const isMarketingOptedIn = storedMember?.marketingOptIn ?? false;
+
+  const handleToggleMarketing = useCallback(() => {
+    if (!storedMember) return;
+    const newValue = !isMarketingOptedIn;
+    updateMemberProfile(storedMember.id, { marketingOptIn: newValue });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      newValue ? "Marketing enabled" : "Marketing disabled",
+      newValue
+        ? "You'll now receive promotional texts about deals, birthday rewards, and points reminders."
+        : "You've opted out of promotional text messages. You can re-enable anytime.",
+    );
+    console.log("[Profile] Marketing opt-in toggled to:", newValue);
+  }, [isMarketingOptedIn, storedMember, updateMemberProfile]);
 
   const [deleteStep, setDeleteStep] = useState<DeleteStep>("idle");
   const [deleteCode, setDeleteCode] = useState<string>("");
@@ -167,6 +188,40 @@ export default function MemberProfileScreen() {
               To change your phone number or birthday, please contact a staff member for assistance.
             </Text>
           </View>
+        </Panel>
+
+        <Panel testID="profile-marketing-panel">
+          <SectionTitle copy="Manage your promotional text message preferences." title="Marketing messages" />
+
+          <View style={styles.marketingRow}>
+            <View style={styles.marketingIconWrap}>
+              {isMarketingOptedIn ? <Bell color="#22C55E" size={18} /> : <BellOff color="#C8AA94" size={18} />}
+            </View>
+            <View style={styles.marketingContent}>
+              <Text style={styles.marketingTitle}>
+                {isMarketingOptedIn ? "Promotional texts enabled" : "Promotional texts disabled"}
+              </Text>
+              <Text style={styles.marketingSubtitle}>
+                {isMarketingOptedIn
+                  ? "You'll receive deals, birthday rewards, and point reminders."
+                  : "You won't receive any promotional text messages."}
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={handleToggleMarketing}
+            style={({ pressed }) => [
+              isMarketingOptedIn ? styles.marketingOptOutButton : styles.marketingOptInButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.985 }] },
+            ]}
+            testID="profile-marketing-toggle"
+          >
+            {isMarketingOptedIn ? <BellOff color="#F87171" size={16} /> : <Bell color="#22C55E" size={16} />}
+            <Text style={isMarketingOptedIn ? styles.marketingOptOutText : styles.marketingOptInText}>
+              {isMarketingOptedIn ? "Opt out of marketing texts" : "Opt in to marketing texts"}
+            </Text>
+          </Pressable>
         </Panel>
 
         <Panel testID="profile-danger-panel">
@@ -337,6 +392,72 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   infoValue: {
+    color: "#FFF7ED",
+    fontSize: 15,
+    fontWeight: "700" as const,
+  },
+  marketingContent: {
+    flex: 1,
+    gap: 3,
+  },
+  marketingIconWrap: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(247, 197, 139, 0.08)",
+    borderRadius: 12,
+    height: 40,
+    justifyContent: "center" as const,
+    width: 40,
+  },
+  marketingOptInButton: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(34, 197, 94, 0.08)",
+    borderColor: "rgba(34, 197, 94, 0.25)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 10,
+    justifyContent: "center" as const,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  marketingOptInText: {
+    color: "#22C55E",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  marketingOptOutButton: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(248, 113, 113, 0.06)",
+    borderColor: "rgba(248, 113, 113, 0.2)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 10,
+    justifyContent: "center" as const,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  marketingOptOutText: {
+    color: "#F87171",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  marketingRow: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 14,
+    padding: 14,
+  },
+  marketingSubtitle: {
+    color: "#C8AA94",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  marketingTitle: {
     color: "#FFF7ED",
     fontSize: 15,
     fontWeight: "700" as const,

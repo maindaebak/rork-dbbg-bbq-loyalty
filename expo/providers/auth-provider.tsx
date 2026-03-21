@@ -14,6 +14,7 @@ export interface MemberProfile {
   birthdate: string;
   birthYear: string;
   createdAt: string;
+  marketingOptIn: boolean;
 }
 
 interface AuthState {

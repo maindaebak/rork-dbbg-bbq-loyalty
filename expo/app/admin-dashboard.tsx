@@ -4,6 +4,7 @@ import { Stack, router } from "expo-router";
 import {
   ChevronRight,
   LogOut,
+  Megaphone,
   Search,
   Settings,
   ShieldCheck,
@@ -121,6 +122,25 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Search members</Text>
               <Text style={styles.actionCaption}>Find by phone & add points</Text>
+            </View>
+            <ChevronRight color="#C8AA94" size={18} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              console.log("[AdminDashboard] Opening marketing");
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/admin-marketing");
+            }}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
+            testID="admin-go-marketing"
+          >
+            <View style={styles.actionIcon}>
+              <Megaphone color="#F7C58B" size={18} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Marketing texts</Text>
+              <Text style={styles.actionCaption}>Deals, birthdays, reminders</Text>
             </View>
             <ChevronRight color="#C8AA94" size={18} />
           </Pressable>

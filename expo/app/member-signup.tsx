@@ -25,6 +25,7 @@ interface SignupFormState {
   birthYear: string;
   code: string;
   agreedToTerms: boolean;
+  marketingOptIn: boolean;
 }
 
 type VerificationStatus = "idle" | "sending" | "sent" | "verified";
@@ -38,6 +39,7 @@ const INITIAL_FORM: SignupFormState = {
   birthYear: "",
   code: "",
   agreedToTerms: false,
+  marketingOptIn: false,
 };
 
 function isValidBirthMonth(value: string): boolean {
@@ -158,6 +160,7 @@ export default function MemberSignupScreen() {
         birthdate: `${form.birthMonth.trim().padStart(2, "0")}/${form.birthDay.trim().padStart(2, "0")}`,
         birthYear: form.birthYear.trim(),
         createdAt: new Date().toISOString(),
+        marketingOptIn: form.marketingOptIn,
       };
 
       console.log("[Signup] Creating member:", member.fullName);
@@ -274,6 +277,19 @@ export default function MemberSignupScreen() {
               >
                 Terms & Conditions
               </Text>
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setForm((prev) => ({ ...prev, marketingOptIn: !prev.marketingOptIn }))}
+            style={styles.termsRow}
+            testID="signup-marketing-checkbox"
+          >
+            <View style={[styles.checkbox, form.marketingOptIn && styles.checkboxChecked]}>
+              {form.marketingOptIn && <CheckCircle2 color="#1A120E" size={14} />}
+            </View>
+            <Text style={styles.termsText}>
+              I'd like to receive promotional text messages about special deals, birthday rewards, and points reminders
             </Text>
           </Pressable>
 

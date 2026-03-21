@@ -17,6 +17,7 @@ export interface StoredMember {
   createdAt: string;
   points: number;
   pointsHistory: PointsEntry[];
+  marketingOptIn: boolean;
 }
 
 export type PointsEntryType = "earned" | "redeemed";
@@ -41,6 +42,7 @@ interface DbMember {
   points: number;
   created_at: string;
   auth_id: string | null;
+  marketing_opt_in: boolean | null;
 }
 
 interface DbPointsEntry {
@@ -74,6 +76,7 @@ function dbMemberToStored(member: DbMember, history: DbPointsEntry[]): StoredMem
       expiresAt: entry.expires_at ?? "",
       note: entry.note ?? "",
     })),
+    marketingOptIn: member.marketing_opt_in ?? false,
   };
 }
 
@@ -171,6 +174,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
           birthdate: member.birthdate || null,
           birth_year: member.birthYear || null,
           auth_id: authUser?.user?.id ?? null,
+          marketing_opt_in: member.marketingOptIn ?? false,
         })
         .select()
         .single();
@@ -198,7 +202,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
         return existing;
       }
       registerMemberMutation.mutate(member);
-      const optimistic: StoredMember = { ...member, points: 0, pointsHistory: [] };
+      const optimistic: StoredMember = { ...member, points: 0, pointsHistory: [], marketingOptIn: member.marketingOptIn ?? false };
       setMembers((prev) => [...prev, optimistic]);
       return optimistic;
     },
@@ -489,13 +493,14 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       updates,
     }: {
       memberId: string;
-      updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear">>;
+      updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear" | "marketingOptIn">>;
     }) => {
-      const dbUpdates: Record<string, string | null> = {};
+      const dbUpdates: Record<string, string | boolean | null> = {};
       if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
       if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
       if (updates.birthdate !== undefined) dbUpdates.birthdate = updates.birthdate || null;
       if (updates.birthYear !== undefined) dbUpdates.birth_year = updates.birthYear || null;
+      if (updates.marketingOptIn !== undefined) dbUpdates.marketing_opt_in = updates.marketingOptIn;
 
       const { error } = await supabase
         .from("members")
@@ -525,7 +530,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   );
 
   const updateMemberProfile = useCallback(
-    (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear">>) => {
+    (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear" | "marketingOptIn">>) => {
       setMembers((prev) =>
         prev.map((m) => (m.id === memberId ? { ...m, ...updates } : m))
       );
