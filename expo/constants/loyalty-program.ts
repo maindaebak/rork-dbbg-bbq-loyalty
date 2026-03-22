@@ -22,6 +22,8 @@ export interface LoyaltyProgramSettings {
   tiers: LoyaltyTier[];
   rewards: LoyaltyReward[];
   membershipRewards: MembershipReward[];
+  vipMembershipRewards: MembershipReward[];
+  vipMinTierId: string;
   termsAndConditions: string;
   privacyPolicy: string;
   tierBonusEnabled: boolean;
@@ -156,6 +158,8 @@ export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
       bonusPoints: 150,
     },
   ],
+  vipMembershipRewards: [],
+  vipMinTierId: "dae-bak-vip",
   tierBonusEnabled: true,
   rewards: [
     {

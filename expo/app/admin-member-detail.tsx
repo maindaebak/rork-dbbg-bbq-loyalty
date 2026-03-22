@@ -9,6 +9,7 @@ import {
   Crown,
   Edit3,
   Flame,
+  Gem,
   Gift,
   Minus,
   Phone,
@@ -102,14 +103,23 @@ export default function AdminMemberDetailScreen() {
     return getActivePoints(foundMember.id);
   }, [foundMember, getActivePoints]);
 
+  const sortedTiers = useMemo(() => [...settings.tiers].sort((a, b) => a.minPoints - b.minPoints), [settings.tiers]);
+
   const currentTier = useMemo(() => {
     if (!foundMember) return null;
-    const sorted = [...settings.tiers].sort((a, b) => a.minPoints - b.minPoints);
-    return sorted.reduce((active, tier) => {
+    return sortedTiers.reduce((active, tier) => {
       if (activePoints >= tier.minPoints) return tier;
       return active;
-    }, sorted[0]);
-  }, [activePoints, foundMember, settings.tiers]);
+    }, sortedTiers[0]);
+  }, [activePoints, foundMember, sortedTiers]);
+
+  const isVipEligible = useMemo(() => {
+    if (!settings.vipMinTierId || !currentTier) return false;
+    const vipTierIndex = sortedTiers.findIndex(t => t.id === settings.vipMinTierId);
+    const currentTierIndex = sortedTiers.findIndex(t => t.id === currentTier.id);
+    if (vipTierIndex < 0) return false;
+    return currentTierIndex >= vipTierIndex;
+  }, [sortedTiers, currentTier, settings.vipMinTierId]);
 
   const stats = useMemo(() => {
     if (!foundMember) return null;
@@ -703,6 +713,59 @@ export default function AdminMemberDetailScreen() {
                     >
                       <Crown color="#1A120E" size={14} />
                       <Text style={styles.membershipClaimBtnText}>Claim</Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+          </CollapsiblePanel>
+        )}
+
+        {isVipEligible && (settings.vipMembershipRewards ?? []).length > 0 && (
+          <CollapsiblePanel
+            testID="detail-vip-rewards-panel"
+            title="VIP Membership Rewards"
+            copy={`Exclusive VIP rewards for ${foundMember.fullName}. No points needed.`}
+            icon={Gem}
+            iconColor="#A78BFA"
+          >
+            <View style={styles.vipInfoBanner}>
+              <Gem color="#A78BFA" size={16} />
+              <Text style={styles.vipInfoText}>These exclusive rewards are for VIP-tier members only. Each can be claimed once per member, and only one membership reward per day. Tap "Claim" to process.</Text>
+            </View>
+            {dailyLimitReached && (
+              <View style={styles.dailyLimitBanner}>
+                <Clock color="#F59E0B" size={16} />
+                <Text style={styles.dailyLimitText}>{foundMember.fullName} has already claimed a membership reward today. Come back tomorrow!</Text>
+              </View>
+            )}
+            {(settings.vipMembershipRewards ?? []).map((reward) => {
+              const alreadyClaimed = hasMemberRedeemedReward(foundMember.id, reward.id);
+              return (
+                <View key={reward.id} style={[styles.vipRewardCard, alreadyClaimed && styles.vipRewardCardClaimed]} testID={`detail-vip-${reward.id}`}>
+                  <View style={[styles.vipRewardAccent, { backgroundColor: alreadyClaimed ? "#6B7280" : reward.accent || "#A78BFA" }]} />
+                  <View style={styles.membershipRewardBody}>
+                    <Text style={[styles.vipRewardTitle, alreadyClaimed && styles.vipRewardTitleClaimed]}>{reward.title}</Text>
+                    <Text style={styles.membershipRewardSubtitle}>{reward.subtitle}</Text>
+                  </View>
+                  {alreadyClaimed ? (
+                    <View style={styles.membershipClaimedBadge}>
+                      <CheckCircle color="#6B7280" size={14} />
+                      <Text style={styles.membershipClaimedText}>Claimed</Text>
+                    </View>
+                  ) : dailyLimitReached ? (
+                    <View style={styles.membershipDailyLimitBadge}>
+                      <Clock color="#F59E0B" size={14} />
+                      <Text style={styles.membershipDailyLimitText}>Tomorrow</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => handleClaimMembershipReward(reward.id, reward.title)}
+                      style={({ pressed }) => [styles.vipClaimBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }]}
+                      testID={`detail-vip-claim-${reward.id}`}
+                    >
+                      <Gem color="#1A120E" size={14} />
+                      <Text style={styles.vipClaimBtnText}>Claim</Text>
                     </Pressable>
                   )}
                 </View>
@@ -1560,5 +1623,65 @@ const styles = StyleSheet.create({
     color: "#F59E0B",
     fontSize: 12,
     fontWeight: "700" as const,
+  },
+  vipInfoBanner: {
+    alignItems: "center",
+    backgroundColor: "rgba(167, 139, 250, 0.06)",
+    borderColor: "rgba(167, 139, 250, 0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  vipInfoText: {
+    color: "#C4B5FD",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  vipRewardCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(167, 139, 250, 0.04)",
+    borderColor: "rgba(167, 139, 250, 0.14)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  vipRewardCardClaimed: {
+    backgroundColor: "rgba(107, 114, 128, 0.04)",
+    borderColor: "rgba(107, 114, 128, 0.14)",
+    opacity: 0.7,
+  },
+  vipRewardAccent: {
+    borderRadius: 999,
+    height: 12,
+    width: 12,
+  },
+  vipRewardTitle: {
+    color: "#FFF7ED",
+    fontSize: 14,
+    fontWeight: "800" as const,
+  },
+  vipRewardTitleClaimed: {
+    color: "#9CA3AF",
+  },
+  vipClaimBtn: {
+    alignItems: "center",
+    backgroundColor: "#A78BFA",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  vipClaimBtnText: {
+    color: "#1A120E",
+    fontSize: 13,
+    fontWeight: "800" as const,
   },
 });

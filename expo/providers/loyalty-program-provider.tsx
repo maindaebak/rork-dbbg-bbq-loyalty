@@ -40,6 +40,14 @@ function sanitizeSettings(input: LoyaltyProgramSettings): LoyaltyProgramSettings
         subtitle: mr.subtitle.trim() || "One-time membership reward",
       })
     ),
+    vipMembershipRewards: (input.vipMembershipRewards ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.vipMembershipRewards).map(
+      (mr: MembershipReward, index: number) => ({
+        ...mr,
+        title: mr.title.trim() || `VIP Reward ${index + 1}`,
+        subtitle: mr.subtitle.trim() || "One-time VIP membership reward",
+      })
+    ),
+    vipMinTierId: input.vipMinTierId ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.vipMinTierId,
     termsAndConditions: input.termsAndConditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
     privacyPolicy: input.privacyPolicy ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.privacyPolicy,
     tierBonusEnabled: input.tierBonusEnabled ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tierBonusEnabled,
@@ -52,6 +60,8 @@ interface DbLoyaltySettings {
   tiers: LoyaltyTier[] | null;
   rewards: LoyaltyReward[] | null;
   membership_rewards: MembershipReward[] | null;
+  vip_membership_rewards: MembershipReward[] | null;
+  vip_min_tier_id: string | null;
   terms_and_conditions: string | null;
   privacy_policy: string | null;
   tier_bonus_enabled: boolean | null;
@@ -64,6 +74,8 @@ function dbSettingsToLocal(db: DbLoyaltySettings): LoyaltyProgramSettings {
     tiers: (db.tiers ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tiers) as LoyaltyTier[],
     rewards: (db.rewards ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.rewards) as LoyaltyReward[],
     membershipRewards: (db.membership_rewards ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.membershipRewards) as MembershipReward[],
+    vipMembershipRewards: (db.vip_membership_rewards ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.vipMembershipRewards) as MembershipReward[],
+    vipMinTierId: db.vip_min_tier_id ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.vipMinTierId,
     termsAndConditions: db.terms_and_conditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
     privacyPolicy: db.privacy_policy ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.privacyPolicy,
     tierBonusEnabled: db.tier_bonus_enabled ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tierBonusEnabled,
@@ -125,6 +137,8 @@ export const [LoyaltyProgramProvider, useLoyaltyProgram] = createContextHook(() 
           tiers: sanitized.tiers as unknown as Record<string, unknown>[],
           rewards: sanitized.rewards as unknown as Record<string, unknown>[],
           membership_rewards: sanitized.membershipRewards as unknown as Record<string, unknown>[],
+          vip_membership_rewards: sanitized.vipMembershipRewards as unknown as Record<string, unknown>[],
+          vip_min_tier_id: sanitized.vipMinTierId,
           terms_and_conditions: sanitized.termsAndConditions,
           privacy_policy: sanitized.privacyPolicy,
           tier_bonus_enabled: sanitized.tierBonusEnabled,
