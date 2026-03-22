@@ -104,7 +104,7 @@ export default function MemberDashboardScreen() {
       >
         <CollapsiblePanel
           testID="member-points-panel"
-          title="Available points"
+          title="Available Points"
           copy="Use points on signature menu items and limited-time member perks."
           icon={Star}
           defaultOpen={true}
@@ -157,50 +157,8 @@ export default function MemberDashboardScreen() {
         </CollapsiblePanel>
 
         <CollapsiblePanel
-          testID="member-tier-panel"
-          title="Current tier"
-          copy="Your current status updates automatically when admin changes the loyalty program rules."
-          icon={Flame}
-          iconColor={currentTier?.accent ?? "#F7C58B"}
-        >
-          <View style={styles.tierCard}>
-            <Text style={styles.tierName}>{currentTier?.name ?? "Member"}</Text>
-            <Text style={styles.tierCopy}>{`${formatPoints(points)} points collected so far`}</Text>
-          </View>
-          <TierRoadmap tiers={settings.tiers} currentPoints={points} currentTierId={currentTier?.id ?? ""} />
-        </CollapsiblePanel>
-
-        <CollapsiblePanel
-          testID="member-actions-panel"
-          title="Points Management"
-          copy="Points are managed by staff. Show your QR code to earn or redeem."
-          icon={Info}
-        >
-          <View style={styles.staffNote}>
-            <Info color="#F7C58B" size={16} />
-            <Text style={styles.staffNoteText}>Points are added and redeemed by staff when you visit. Show your QR code and ask staff for assistance!</Text>
-          </View>
-          <Pressable
-            onPress={() => {
-              console.log("Member tapped points history");
-              router.push("/points-history");
-            }}
-            style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
-            testID="member-points-history-button"
-          >
-            <View style={styles.actionIconWrap}>
-              <Clock color="#F7C58B" size={18} />
-            </View>
-            <View style={styles.actionTextWrap}>
-              <Text style={styles.actionTitle}>Points history & expiry</Text>
-              <Text style={styles.actionSubtitle}>Track earned, used, and expiring points</Text>
-            </View>
-          </Pressable>
-        </CollapsiblePanel>
-
-        <CollapsiblePanel
           testID="member-rewards-panel"
-          title="Featured rewards"
+          title="Points Rewards"
           copy="Popular rewards for regulars. Ask staff to redeem with your points."
           icon={Gift}
         >
@@ -215,7 +173,7 @@ export default function MemberDashboardScreen() {
 
         <CollapsiblePanel
           testID="member-membership-rewards-panel"
-          title="Membership rewards"
+          title="Membership Rewards"
           copy="Exclusive one-time rewards just for being a member. No points needed!"
           icon={Crown}
           iconColor="#34D399"
@@ -247,8 +205,50 @@ export default function MemberDashboardScreen() {
         </CollapsiblePanel>
 
         <CollapsiblePanel
+          testID="member-actions-panel"
+          title="Points Management"
+          copy="Points are managed by staff. Show your QR code to earn or redeem."
+          icon={Info}
+        >
+          <View style={styles.staffNote}>
+            <Info color="#F7C58B" size={16} />
+            <Text style={styles.staffNoteText}>Points are added and redeemed by staff when you visit. Show your QR code and ask staff for assistance!</Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              console.log("Member tapped points history");
+              router.push("/points-history");
+            }}
+            style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
+            testID="member-points-history-button"
+          >
+            <View style={styles.actionIconWrap}>
+              <Clock color="#F7C58B" size={18} />
+            </View>
+            <View style={styles.actionTextWrap}>
+              <Text style={styles.actionTitle}>Points history & expiry</Text>
+              <Text style={styles.actionSubtitle}>Track earned, used, and expiring points</Text>
+            </View>
+          </Pressable>
+        </CollapsiblePanel>
+
+        <CollapsiblePanel
+          testID="member-tier-panel"
+          title="Current Tier"
+          copy="Your current status updates automatically when admin changes the loyalty program rules."
+          icon={Flame}
+          iconColor={currentTier?.accent ?? "#F7C58B"}
+        >
+          <View style={styles.tierCard}>
+            <Text style={styles.tierName}>{currentTier?.name ?? "Member"}</Text>
+            <Text style={styles.tierCopy}>{`${formatPoints(points)} points collected so far`}</Text>
+          </View>
+          <TierRoadmap tiers={settings.tiers} currentPoints={points} currentTierId={currentTier?.id ?? ""} />
+        </CollapsiblePanel>
+
+        <CollapsiblePanel
           testID="member-options-panel"
-          title="Member options"
+          title="Member Options"
           copy="Manage your account, view profile, or sign out."
           icon={User}
         >
