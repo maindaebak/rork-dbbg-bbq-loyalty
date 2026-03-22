@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, FileText, MessageSquareMore, Sparkles, UserPlus } from "lucide-react-native";
+import { CheckCircle2, FileText, MessageSquareMore, Shield, Sparkles, UserPlus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -277,19 +277,34 @@ export default function MemberSignupScreen() {
               >
                 Terms & Conditions
               </Text>
+              {" "}and{" "}
+              <Text
+                onPress={() => router.push("/privacy-policy")}
+                style={styles.termsLink}
+              >
+                Privacy Policy
+              </Text>
             </Text>
           </Pressable>
 
-
-
-          <Pressable
-            onPress={() => router.push("/terms-conditions")}
-            style={({ pressed }) => [styles.viewTermsButton, pressed && { opacity: 0.7 }]}
-            testID="signup-view-terms-button"
-          >
-            <FileText color="#F7C58B" size={16} />
-            <Text style={styles.viewTermsText}>Read full Terms & Conditions</Text>
-          </Pressable>
+          <View style={styles.legalLinksRow}>
+            <Pressable
+              onPress={() => router.push("/terms-conditions")}
+              style={({ pressed }) => [styles.viewTermsButton, styles.legalLinkHalf, pressed && { opacity: 0.7 }]}
+              testID="signup-view-terms-button"
+            >
+              <FileText color="#F7C58B" size={16} />
+              <Text style={styles.viewTermsText}>Terms & Conditions</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/privacy-policy")}
+              style={({ pressed }) => [styles.viewTermsButton, styles.legalLinkHalf, pressed && { opacity: 0.7 }]}
+              testID="signup-view-privacy-button"
+            >
+              <Shield color="#F7C58B" size={16} />
+              <Text style={styles.viewTermsText}>Privacy Policy</Text>
+            </Pressable>
+          </View>
 
           <ActionButton
             icon={MessageSquareMore}
@@ -425,5 +440,12 @@ const styles = StyleSheet.create({
     color: "#F7C58B",
     fontSize: 13,
     fontWeight: "700" as const,
+  },
+  legalLinksRow: {
+    flexDirection: "row" as const,
+    gap: 10,
+  },
+  legalLinkHalf: {
+    flex: 1,
   },
 });

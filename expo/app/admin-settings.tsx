@@ -7,6 +7,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Shield,
   Sparkles,
   Trash2,
 } from "lucide-react-native";
@@ -36,6 +37,7 @@ export default function AdminSettingsScreen() {
   const [tiers, setTiers] = useState<LoyaltyTier[]>(settings.tiers);
   const [rewards, setRewards] = useState<LoyaltyReward[]>(settings.rewards);
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
+  const [privacyText, setPrivacyText] = useState<string>(settings.privacyPolicy ?? "");
   const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
 
   useEffect(() => {
@@ -43,6 +45,7 @@ export default function AdminSettingsScreen() {
     setTiers(settings.tiers);
     setRewards(settings.rewards);
     setTermsText(settings.termsAndConditions ?? "");
+    setPrivacyText(settings.privacyPolicy ?? "");
     setTierBonusEnabled(settings.tierBonusEnabled ?? true);
   }, [settings]);
 
@@ -57,13 +60,14 @@ export default function AdminSettingsScreen() {
       tiers,
       rewards,
       termsAndConditions: termsText,
+      privacyPolicy: privacyText,
       tierBonusEnabled,
     };
     console.log("[AdminSettings] Saving settings", next);
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [pointsPerDollar, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
+  }, [pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -304,6 +308,31 @@ export default function AdminSettingsScreen() {
           </Pressable>
         </Panel>
 
+
+        <Panel testID="admin-privacy-panel">
+          <SectionTitle
+            copy="Edit the privacy policy that members can view. This explains how you collect, use, and protect their information."
+            title="Privacy Policy"
+          />
+          <View style={styles.termsEditorWrap}>
+            <View style={styles.termsEditorHeader}>
+              <Shield color="#F7C58B" size={14} />
+              <Text style={styles.termsEditorLabel}>Privacy policy content</Text>
+            </View>
+            <TextInput
+              multiline
+              numberOfLines={12}
+              onChangeText={setPrivacyText}
+              placeholder="Enter your privacy policy here..."
+              placeholderTextColor="#8E6D56"
+              style={styles.termsInput}
+              testID="admin-privacy-input"
+              textAlignVertical="top"
+              value={privacyText}
+            />
+            <Text style={styles.termsCharCount}>{privacyText.length} characters</Text>
+          </View>
+        </Panel>
 
         <Panel testID="admin-terms-panel">
           <SectionTitle

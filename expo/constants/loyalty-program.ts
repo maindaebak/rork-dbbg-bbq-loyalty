@@ -15,6 +15,7 @@ export interface LoyaltyProgramSettings {
   tiers: LoyaltyTier[];
   rewards: LoyaltyReward[];
   termsAndConditions: string;
+  privacyPolicy: string;
   tierBonusEnabled: boolean;
 }
 
@@ -52,9 +53,70 @@ By signing up for the Dae Bak Bon Ga Loyalty Program, you agree to receive promo
 
 By signing up, you acknowledge that you have read, understood, and agree to these terms and conditions.`;
 
+const DEFAULT_PRIVACY_POLICY = `Privacy Policy
+Last Updated: March 21, 2026
+
+At Dae Bak Bon Ga, we value your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use our Loyalty App.
+
+1. Information We Collect
+We collect information that you voluntarily provide to us when you register for our loyalty program, including:
+
+Personal Identifiers: Name and Phone Number.
+
+Demographic Data: Birthdate (used solely for birthday rewards).
+
+Usage Data: Points earned, rewards redeemed, and visit history.
+
+2. How We Use Your Information
+We use your data to:
+
+Manage your loyalty points and rewards.
+
+Send you SMS notifications regarding your points or special promotions (if you opted-in).
+
+Send automated "Happy Birthday" messages and offers.
+
+Improve our restaurant services and app experience.
+
+3. SMS Marketing & Communication
+By providing your phone number and opting in, you consent to receive text messages from us.
+
+Frequency: Message frequency varies based on your activity (e.g., points earned) and monthly promotions.
+
+Opt-Out: You can opt-out of marketing texts at any time by updating your profile settings in the app or replying "STOP" to any mobile message.
+
+Costs: Standard message and data rates may apply.
+
+4. Third-Party Sharing
+We do not sell or rent your personal information. We only share data with trusted service providers necessary to run the app, such as:
+
+Supabase: For secure database storage.
+
+Twilio: For delivering SMS notifications.
+
+Google AdSense: To show relevant advertisements (if applicable).
+
+5. Data Security
+We implement industry-standard security measures (via Supabase) to protect your data. However, no method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.
+
+6. Your Rights
+You have the right to:
+
+Access the personal data we hold about you.
+
+Request the correction or deletion of your data.
+
+Withdraw consent for marketing communications at any time.
+
+7. Contact Us
+If you have any questions about this Privacy Policy, please contact us at:
+Dae Bak Bon Ga
+main@dae-bak.com`;
+
 export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
   pointsPerDollar: 8,
   termsAndConditions: DEFAULT_TERMS,
+  privacyPolicy: DEFAULT_PRIVACY_POLICY,
   tiers: [
     {
       id: "ember",
