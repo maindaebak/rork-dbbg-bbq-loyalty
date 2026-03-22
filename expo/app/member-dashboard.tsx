@@ -105,7 +105,7 @@ export default function MemberDashboardScreen() {
         <CollapsiblePanel
           testID="member-points-panel"
           title="Available Points"
-          copy="Use points on signature menu items and limited-time member perks."
+          copy=""
           icon={Star}
           defaultOpen={true}
         >
@@ -159,12 +159,12 @@ export default function MemberDashboardScreen() {
         <CollapsiblePanel
           testID="member-rewards-panel"
           title="Points Rewards"
-          copy="Popular rewards for regulars. Ask staff to redeem with your points."
+          copy=""
           icon={Gift}
         >
           <View style={styles.redeemNote}>
             <Gift color="#F7C58B" size={16} />
-            <Text style={styles.redeemNoteText}>To redeem a reward, show your QR code to staff. They will process the redemption for you.</Text>
+            <Text style={styles.redeemNoteTextHighlight}>To redeem a reward, show your QR code to staff. They will process the redemption for you.</Text>
           </View>
           {settings.rewards.map((item) => (
             <RewardCard item={item} key={item.id} />
@@ -207,12 +207,12 @@ export default function MemberDashboardScreen() {
         <CollapsiblePanel
           testID="member-actions-panel"
           title="Points Management"
-          copy="Points are managed by staff. Show your QR code to earn or redeem."
+          copy=""
           icon={Info}
         >
           <View style={styles.staffNote}>
             <Info color="#F7C58B" size={16} />
-            <Text style={styles.staffNoteText}>Points are added and redeemed by staff when you visit. Show your QR code and ask staff for assistance!</Text>
+            <Text style={styles.staffNoteTextHighlight}>Points are added and redeemed by staff when you visit. Show your QR code and ask staff for assistance!</Text>
           </View>
           <Pressable
             onPress={() => {
@@ -235,7 +235,7 @@ export default function MemberDashboardScreen() {
         <CollapsiblePanel
           testID="member-tier-panel"
           title="Current Tier"
-          copy="Your current status updates automatically when admin changes the loyalty program rules."
+          copy=""
           icon={Flame}
           iconColor={currentTier?.accent ?? "#F7C58B"}
         >
@@ -626,6 +626,13 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
     lineHeight: 18,
   },
+  staffNoteTextHighlight: {
+    color: "#F7C58B",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700" as const,
+    lineHeight: 18,
+  },
   redeemNote: {
     alignItems: "center",
     backgroundColor: "rgba(247, 197, 139, 0.06)",
@@ -642,6 +649,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  redeemNoteTextHighlight: {
+    color: "#F7C58B",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700" as const,
     lineHeight: 18,
   },
   actionRow: {
