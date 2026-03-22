@@ -2,9 +2,11 @@ import * as Haptics from "expo-haptics";
 import { Stack, useLocalSearchParams, router } from "expo-router";
 import {
   Calendar,
+  CheckCircle,
   ChevronLeft,
   CircleDollarSign,
   Clock,
+  Crown,
   Edit3,
   Flame,
   Gift,
@@ -75,7 +77,7 @@ function getMemberStats(member: StoredMember) {
 
 export default function AdminMemberDetailScreen() {
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
-  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember } = useMembersStore();
+  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, redeemMembershipReward } = useMembersStore();
   const { settings } = useLoyaltyProgram();
 
   const [dollarAmount, setDollarAmount] = useState<string>("");
@@ -299,6 +301,36 @@ export default function AdminMemberDetailScreen() {
       ],
     );
   }, [activePoints, foundMember, removeAmount, removeNote, removePoints]);
+
+  const handleClaimMembershipReward = useCallback((rewardId: string, rewardTitle: string) => {
+    if (!foundMember) return;
+
+    if (hasMemberRedeemedReward(foundMember.id, rewardId)) {
+      Alert.alert("Already Claimed", `${foundMember.fullName} has already claimed "${rewardTitle}".`);
+      return;
+    }
+
+    Alert.alert(
+      "Confirm claim",
+      `Claim "${rewardTitle}" for ${foundMember.fullName}?\n\nThis is a one-time membership reward — no points will be deducted.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Claim",
+          onPress: () => {
+            const success = redeemMembershipReward(foundMember.id, rewardId);
+            if (success) {
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Claimed!", `"${rewardTitle}" has been claimed for ${foundMember.fullName}.`);
+              console.log("[MemberDetail] Claimed membership reward", rewardTitle, "for member", foundMember.id);
+            } else {
+              Alert.alert("Already Claimed", "This reward has already been claimed.");
+            }
+          },
+        },
+      ],
+    );
+  }, [foundMember, hasMemberRedeemedReward, redeemMembershipReward]);
 
   const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
@@ -613,6 +645,48 @@ export default function AdminMemberDetailScreen() {
             </View>
           ))}
         </CollapsiblePanel>
+
+        {settings.membershipRewards.length > 0 && (
+          <CollapsiblePanel
+            testID="detail-membership-rewards-panel"
+            title="Membership rewards"
+            copy={`Claim one-time membership rewards for ${foundMember.fullName}. No points needed.`}
+            icon={Crown}
+            iconColor="#34D399"
+          >
+            <View style={styles.membershipInfoBanner}>
+              <Crown color="#34D399" size={16} />
+              <Text style={styles.membershipInfoText}>Each membership reward can only be claimed once per member. Tap "Claim" to process.</Text>
+            </View>
+            {settings.membershipRewards.map((reward) => {
+              const alreadyClaimed = hasMemberRedeemedReward(foundMember.id, reward.id);
+              return (
+                <View key={reward.id} style={[styles.membershipRewardCard, alreadyClaimed && styles.membershipRewardCardClaimed]} testID={`detail-membership-${reward.id}`}>
+                  <View style={[styles.membershipRewardAccent, { backgroundColor: alreadyClaimed ? "#6B7280" : reward.accent }]} />
+                  <View style={styles.membershipRewardBody}>
+                    <Text style={[styles.membershipRewardTitle, alreadyClaimed && styles.membershipRewardTitleClaimed]}>{reward.title}</Text>
+                    <Text style={styles.membershipRewardSubtitle}>{reward.subtitle}</Text>
+                  </View>
+                  {alreadyClaimed ? (
+                    <View style={styles.membershipClaimedBadge}>
+                      <CheckCircle color="#6B7280" size={14} />
+                      <Text style={styles.membershipClaimedText}>Claimed</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => handleClaimMembershipReward(reward.id, reward.title)}
+                      style={({ pressed }) => [styles.membershipClaimBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }]}
+                      testID={`detail-membership-claim-${reward.id}`}
+                    >
+                      <Crown color="#1A120E" size={14} />
+                      <Text style={styles.membershipClaimBtnText}>Claim</Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+          </CollapsiblePanel>
+        )}
 
         <CollapsiblePanel
           testID="detail-remove-points-panel"
@@ -1301,6 +1375,89 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: "#FFF",
     fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  membershipInfoBanner: {
+    alignItems: "center",
+    backgroundColor: "rgba(52, 211, 153, 0.06)",
+    borderColor: "rgba(52, 211, 153, 0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  membershipInfoText: {
+    color: "#A7C4B5",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  membershipRewardCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(52, 211, 153, 0.04)",
+    borderColor: "rgba(52, 211, 153, 0.14)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  membershipRewardCardClaimed: {
+    backgroundColor: "rgba(107, 114, 128, 0.04)",
+    borderColor: "rgba(107, 114, 128, 0.14)",
+    opacity: 0.7,
+  },
+  membershipRewardAccent: {
+    borderRadius: 999,
+    height: 12,
+    width: 12,
+  },
+  membershipRewardBody: {
+    flex: 1,
+    gap: 3,
+  },
+  membershipRewardTitle: {
+    color: "#FFF7ED",
+    fontSize: 14,
+    fontWeight: "800" as const,
+  },
+  membershipRewardTitleClaimed: {
+    color: "#9CA3AF",
+  },
+  membershipRewardSubtitle: {
+    color: "#C9AD99",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  membershipClaimedBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(107, 114, 128, 0.12)",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  membershipClaimedText: {
+    color: "#9CA3AF",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  membershipClaimBtn: {
+    alignItems: "center",
+    backgroundColor: "#34D399",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  membershipClaimBtnText: {
+    color: "#1A120E",
+    fontSize: 13,
     fontWeight: "800" as const,
   },
   historyAmount: {

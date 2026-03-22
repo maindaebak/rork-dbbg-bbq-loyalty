@@ -2,12 +2,12 @@ import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Clock, Flame, Gift, Info, LogOut, Star, User } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View, LayoutAnimation, Platform, UIManager } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View, LayoutAnimation, Platform, UIManager } from "react-native";
+import * as Haptics from "expo-haptics";
 
 import { CollapsiblePanel, LoyaltyScreen, RewardCard } from "@/components/loyalty/ui";
 import { useAuth } from "@/providers/auth-provider";
-import { Alert } from "react-native";
-import * as Haptics from "expo-haptics";
+
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle } from "lucide-react-native";
@@ -24,7 +24,7 @@ function formatPoints(value: number): string {
 export default function MemberDashboardScreen() {
   const { settings } = useLoyaltyProgram();
   const { member, logout } = useAuth();
-  const { getActivePoints, hasMemberRedeemedReward, redeemMembershipReward } = useMembersStore();
+  const { getActivePoints, hasMemberRedeemedReward } = useMembersStore();
 
   const points = useMemo<number>(() => {
     if (!member?.id) return 0;
@@ -176,35 +176,13 @@ export default function MemberDashboardScreen() {
           >
             <View style={styles.membershipNote}>
               <Crown color="#34D399" size={16} />
-              <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be redeemed once. Show your QR code to staff to claim.</Text>
+              <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be claimed once by staff when you visit. Show your QR code!</Text>
             </View>
             {settings.membershipRewards.map((reward) => (
               <MembershipRewardCard
                 key={reward.id}
                 reward={reward}
                 redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
-                onRedeem={() => {
-                  if (!member?.id) return;
-                  Alert.alert(
-                    "Redeem Reward",
-                    `Are you sure you want to redeem "${reward.title}"? This can only be done once.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Redeem",
-                        onPress: () => {
-                          const success = redeemMembershipReward(member.id, reward.id);
-                          if (success) {
-                            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            Alert.alert("Redeemed!", `You've claimed "${reward.title}". Show this to staff!`);
-                          } else {
-                            Alert.alert("Already Redeemed", "You've already claimed this reward.");
-                          }
-                        },
-                      },
-                    ],
-                  );
-                }}
               />
             ))}
           </CollapsiblePanel>
@@ -364,7 +342,7 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
   );
 }
 
-function MembershipRewardCard({ reward, redeemed, onRedeem }: { reward: MembershipReward; redeemed: boolean; onRedeem: () => void }) {
+function MembershipRewardCard({ reward, redeemed }: { reward: MembershipReward; redeemed: boolean }) {
   return (
     <View style={[styles.membershipCard, redeemed && styles.membershipCardRedeemed]} testID={`membership-reward-${reward.id}`}>
       <View style={[styles.membershipAccent, { backgroundColor: redeemed ? "#6B7280" : reward.accent }]} />
@@ -378,14 +356,10 @@ function MembershipRewardCard({ reward, redeemed, onRedeem }: { reward: Membersh
           <Text style={styles.membershipRedeemedText}>Claimed</Text>
         </View>
       ) : (
-        <Pressable
-          onPress={onRedeem}
-          style={({ pressed }) => [styles.membershipClaimBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }]}
-          testID={`membership-claim-${reward.id}`}
-        >
-          <Crown color="#1A120E" size={14} />
-          <Text style={styles.membershipClaimText}>Claim</Text>
-        </Pressable>
+        <View style={styles.membershipAvailableBadge}>
+          <Crown color="#34D399" size={14} />
+          <Text style={styles.membershipAvailableText}>Available</Text>
+        </View>
       )}
     </View>
   );
@@ -828,18 +802,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700" as const,
   },
-  membershipClaimBtn: {
+  membershipAvailableBadge: {
     alignItems: "center",
-    backgroundColor: "#34D399",
+    backgroundColor: "rgba(52, 211, 153, 0.12)",
     borderRadius: 999,
     flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  membershipClaimText: {
-    color: "#1A120E",
-    fontSize: 13,
-    fontWeight: "800" as const,
+  membershipAvailableText: {
+    color: "#34D399",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
 });
