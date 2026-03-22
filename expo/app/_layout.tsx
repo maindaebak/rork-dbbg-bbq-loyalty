@@ -47,8 +47,16 @@ export default function RootLayout() {
       meta.name = "google-adsense-account";
       meta.content = "ca-pub-7133225364355808";
       document.head.appendChild(meta);
+
+      const script = document.createElement("script");
+      script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7133225364355808";
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      document.head.appendChild(script);
+
       return () => {
         document.head.removeChild(meta);
+        document.head.removeChild(script);
       };
     }
   }, []);
