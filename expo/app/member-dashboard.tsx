@@ -116,10 +116,6 @@ export default function MemberDashboardScreen() {
                 <Star color="#1A120E" fill="#1A120E" size={16} />
                 <Text style={styles.pointsMetaText}>{`Earn ${settings.pointsPerDollar} points per $1 spent`}</Text>
               </View>
-              <View style={[styles.pointsTierBadge, { backgroundColor: currentTier?.accent ?? "#F59E0B" }]}>
-                <Flame color="#1A120E" size={14} />
-                <Text style={styles.pointsTierBadgeText}>{currentTier?.name ?? "Member"}</Text>
-              </View>
             </View>
             {nextTier ? (
               <View style={styles.tierProgressSection}>
