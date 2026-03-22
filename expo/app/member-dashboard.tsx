@@ -87,7 +87,7 @@ export default function MemberDashboardScreen() {
             </View>
           ) : "Member dashboard"
         }
-        subtitle="See your live tier, point balance, and redeemable rewards based on the latest admin settings."
+        subtitle=""
         heroContent={
           <View style={styles.logoSection} testID="member-dashboard-logo">
             <View style={styles.logoContainer}>
