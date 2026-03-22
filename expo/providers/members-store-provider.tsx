@@ -636,6 +636,20 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     },
   });
 
+  const hasMemberRedeemedAnyRewardToday = useCallback(
+    (memberId: string): boolean => {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      return membershipRedemptions.some((r) => {
+        if (r.memberId !== memberId) return false;
+        const rDate = new Date(r.redeemedAt);
+        const rStr = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, "0")}-${String(rDate.getDate()).padStart(2, "0")}`;
+        return rStr === todayStr;
+      });
+    },
+    [membershipRedemptions],
+  );
+
   const redeemMembershipReward = useCallback(
     (memberId: string, rewardId: string) => {
       const already = membershipRedemptions.some(
@@ -643,8 +657,14 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       );
       if (already) {
         console.log("[MembersStore] Membership reward already redeemed");
-        return false;
+        return "already_redeemed" as const;
       }
+
+      if (hasMemberRedeemedAnyRewardToday(memberId)) {
+        console.log("[MembersStore] Member already redeemed a membership reward today");
+        return "daily_limit" as const;
+      }
+
       const optimistic: MembershipRedemption = {
         memberId,
         rewardId,
@@ -652,9 +672,46 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       };
       setMembershipRedemptions((prev) => [...prev, optimistic]);
       redeemMembershipRewardMutation.mutate({ memberId, rewardId });
-      return true;
+
+      const visitEntry: PointsEntry = {
+        id: `pts-membership-${Date.now()}`,
+        type: "earned",
+        amount: 0,
+        dollarAmount: 0,
+        addedBy: "system",
+        addedAt: new Date().toISOString(),
+        expiresAt: "",
+        note: `Membership reward visit`,
+      };
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === memberId
+            ? { ...m, pointsHistory: [visitEntry, ...m.pointsHistory] }
+            : m
+        )
+      );
+
+      const recordVisit = async () => {
+        try {
+          await supabase.from("points_history").insert({
+            member_id: memberId,
+            type: "earned",
+            amount: 0,
+            dollar_amount: 0,
+            added_by: "system",
+            note: `Membership reward visit`,
+            expires_at: null,
+          });
+          console.log("[MembersStore] Recorded membership reward visit for member", memberId);
+        } catch (err) {
+          console.error("[MembersStore] Failed to record membership visit:", err);
+        }
+      };
+      void recordVisit();
+
+      return "success" as const;
     },
-    [membershipRedemptions, redeemMembershipRewardMutation],
+    [membershipRedemptions, redeemMembershipRewardMutation, hasMemberRedeemedAnyRewardToday],
   );
 
   const hasMemberRedeemedReward = useCallback(
@@ -689,6 +746,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       membershipRedemptions,
       redeemMembershipReward,
       hasMemberRedeemedReward,
+      hasMemberRedeemedAnyRewardToday,
       getMemberRedemptions,
     }),
     [
@@ -706,6 +764,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       membershipRedemptions,
       redeemMembershipReward,
       hasMemberRedeemedReward,
+      hasMemberRedeemedAnyRewardToday,
       getMemberRedemptions,
     ],
   );

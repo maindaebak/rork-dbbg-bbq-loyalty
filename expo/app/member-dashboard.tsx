@@ -10,7 +10,7 @@ import { useAuth } from "@/providers/auth-provider";
 
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle, Clock as ClockIcon } from "lucide-react-native";
 import type { MembershipReward } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -24,7 +24,7 @@ function formatPoints(value: number): string {
 export default function MemberDashboardScreen() {
   const { settings } = useLoyaltyProgram();
   const { member, logout } = useAuth();
-  const { getActivePoints, hasMemberRedeemedReward } = useMembersStore();
+  const { getActivePoints, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday } = useMembersStore();
 
   const points = useMemo<number>(() => {
     if (!member?.id) return 0;
@@ -222,14 +222,21 @@ export default function MemberDashboardScreen() {
         >
           <View style={styles.membershipNote}>
             <Crown color="#34D399" size={16} />
-            <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be claimed once by staff when you visit. Show your QR code!</Text>
+            <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be claimed once by staff when you visit (limit one per day). Show your QR code!</Text>
           </View>
+          {member?.id && hasMemberRedeemedAnyRewardToday(member.id) && (
+            <View style={styles.dailyLimitNote}>
+              <ClockIcon color="#F59E0B" size={14} />
+              <Text style={styles.dailyLimitNoteText}>You've already claimed a membership reward today. Come back tomorrow for more!</Text>
+            </View>
+          )}
           {(settings.membershipRewards ?? []).length > 0 ? (
             (settings.membershipRewards ?? []).map((reward) => (
               <MembershipRewardCard
                 key={reward.id}
                 reward={reward}
                 redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
+                dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
               />
             ))
           ) : (
@@ -393,7 +400,7 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
   );
 }
 
-function MembershipRewardCard({ reward, redeemed }: { reward: MembershipReward; redeemed: boolean }) {
+function MembershipRewardCard({ reward, redeemed, dailyLimitReached }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean }) {
   return (
     <View style={[styles.membershipCard, redeemed && styles.membershipCardRedeemed]} testID={`membership-reward-${reward.id}`}>
       <View style={[styles.membershipAccent, { backgroundColor: redeemed ? "#6B7280" : reward.accent }]} />
@@ -405,6 +412,11 @@ function MembershipRewardCard({ reward, redeemed }: { reward: MembershipReward; 
         <View style={styles.membershipRedeemedBadge}>
           <CheckCircle color="#6B7280" size={16} />
           <Text style={styles.membershipRedeemedText}>Claimed</Text>
+        </View>
+      ) : dailyLimitReached ? (
+        <View style={styles.membershipDailyLimitBadge}>
+          <ClockIcon color="#F59E0B" size={14} />
+          <Text style={styles.membershipDailyLimitText}>Tomorrow</Text>
         </View>
       ) : (
         <View style={styles.membershipAvailableBadge}>
@@ -953,5 +965,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600" as const,
     textAlign: "center" as const,
+  },
+  dailyLimitNote: {
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.06)",
+    borderColor: "rgba(245, 158, 11, 0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dailyLimitNoteText: {
+    color: "#FCD34D",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  membershipDailyLimitBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  membershipDailyLimitText: {
+    color: "#F59E0B",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
 });

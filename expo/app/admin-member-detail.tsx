@@ -77,7 +77,7 @@ function getMemberStats(member: StoredMember) {
 
 export default function AdminMemberDetailScreen() {
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
-  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, redeemMembershipReward } = useMembersStore();
+  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward } = useMembersStore();
   const { settings } = useLoyaltyProgram();
 
   const [dollarAmount, setDollarAmount] = useState<string>("");
@@ -302,6 +302,11 @@ export default function AdminMemberDetailScreen() {
     );
   }, [activePoints, foundMember, removeAmount, removeNote, removePoints]);
 
+  const dailyLimitReached = useMemo(() => {
+    if (!foundMember) return false;
+    return hasMemberRedeemedAnyRewardToday(foundMember.id);
+  }, [foundMember, hasMemberRedeemedAnyRewardToday]);
+
   const handleClaimMembershipReward = useCallback((rewardId: string, rewardTitle: string) => {
     if (!foundMember) return;
 
@@ -310,19 +315,26 @@ export default function AdminMemberDetailScreen() {
       return;
     }
 
+    if (hasMemberRedeemedAnyRewardToday(foundMember.id)) {
+      Alert.alert("Daily Limit Reached", `${foundMember.fullName} has already claimed a membership reward today. Only one membership reward can be claimed per day.`);
+      return;
+    }
+
     Alert.alert(
       "Confirm claim",
-      `Claim "${rewardTitle}" for ${foundMember.fullName}?\n\nThis is a one-time membership reward — no points will be deducted.`,
+      `Claim "${rewardTitle}" for ${foundMember.fullName}?\n\nThis is a one-time membership reward — no points will be deducted. This will also count as a visit.`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Claim",
           onPress: () => {
-            const success = redeemMembershipReward(foundMember.id, rewardId);
-            if (success) {
+            const result = redeemMembershipReward(foundMember.id, rewardId);
+            if (result === "success") {
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Claimed!", `"${rewardTitle}" has been claimed for ${foundMember.fullName}.`);
+              Alert.alert("Claimed!", `"${rewardTitle}" has been claimed for ${foundMember.fullName}. Visit recorded.`);
               console.log("[MemberDetail] Claimed membership reward", rewardTitle, "for member", foundMember.id);
+            } else if (result === "daily_limit") {
+              Alert.alert("Daily Limit Reached", "Only one membership reward can be claimed per day.");
             } else {
               Alert.alert("Already Claimed", "This reward has already been claimed.");
             }
@@ -330,7 +342,7 @@ export default function AdminMemberDetailScreen() {
         },
       ],
     );
-  }, [foundMember, hasMemberRedeemedReward, redeemMembershipReward]);
+  }, [foundMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward]);
 
   const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
@@ -656,8 +668,14 @@ export default function AdminMemberDetailScreen() {
           >
             <View style={styles.membershipInfoBanner}>
               <Crown color="#34D399" size={16} />
-              <Text style={styles.membershipInfoText}>Each membership reward can only be claimed once per member. Tap "Claim" to process.</Text>
+              <Text style={styles.membershipInfoText}>Each membership reward can only be claimed once per member, and only one per day. Tap "Claim" to process.</Text>
             </View>
+            {dailyLimitReached && (
+              <View style={styles.dailyLimitBanner}>
+                <Clock color="#F59E0B" size={16} />
+                <Text style={styles.dailyLimitText}>{foundMember.fullName} has already claimed a membership reward today. Come back tomorrow!</Text>
+              </View>
+            )}
             {settings.membershipRewards.map((reward) => {
               const alreadyClaimed = hasMemberRedeemedReward(foundMember.id, reward.id);
               return (
@@ -671,6 +689,11 @@ export default function AdminMemberDetailScreen() {
                     <View style={styles.membershipClaimedBadge}>
                       <CheckCircle color="#6B7280" size={14} />
                       <Text style={styles.membershipClaimedText}>Claimed</Text>
+                    </View>
+                  ) : dailyLimitReached ? (
+                    <View style={styles.membershipDailyLimitBadge}>
+                      <Clock color="#F59E0B" size={14} />
+                      <Text style={styles.membershipDailyLimitText}>Tomorrow</Text>
                     </View>
                   ) : (
                     <Pressable
@@ -1505,5 +1528,37 @@ const styles = StyleSheet.create({
     color: "#8E6D56",
     fontSize: 12,
     fontWeight: "600" as const,
+  },
+  dailyLimitBanner: {
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.08)",
+    borderColor: "rgba(245, 158, 11, 0.2)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dailyLimitText: {
+    color: "#FCD34D",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  membershipDailyLimitBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  membershipDailyLimitText: {
+    color: "#F59E0B",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
 });
