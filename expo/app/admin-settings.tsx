@@ -4,7 +4,6 @@ import {
   CircleDollarSign,
   Crown,
   FileText,
-  Gem,
   Gift,
   Plus,
   RotateCcw,
@@ -39,8 +38,6 @@ export default function AdminSettingsScreen() {
   const [tiers, setTiers] = useState<LoyaltyTier[]>(settings.tiers);
   const [rewards, setRewards] = useState<LoyaltyReward[]>(settings.rewards);
   const [membershipRewards, setMembershipRewards] = useState<MembershipReward[]>(settings.membershipRewards ?? []);
-  const [vipMembershipRewards, setVipMembershipRewards] = useState<MembershipReward[]>(settings.vipMembershipRewards ?? []);
-  const [vipMinTierId, setVipMinTierId] = useState<string>(settings.vipMinTierId ?? "");
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
   const [privacyText, setPrivacyText] = useState<string>(settings.privacyPolicy ?? "");
   const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
@@ -50,8 +47,6 @@ export default function AdminSettingsScreen() {
     setTiers(settings.tiers);
     setRewards(settings.rewards);
     setMembershipRewards(settings.membershipRewards ?? []);
-    setVipMembershipRewards(settings.vipMembershipRewards ?? []);
-    setVipMinTierId(settings.vipMinTierId ?? "");
     setTermsText(settings.termsAndConditions ?? "");
     setPrivacyText(settings.privacyPolicy ?? "");
     setTierBonusEnabled(settings.tierBonusEnabled ?? true);
@@ -68,8 +63,6 @@ export default function AdminSettingsScreen() {
       tiers,
       rewards,
       membershipRewards,
-      vipMembershipRewards,
-      vipMinTierId,
       termsAndConditions: termsText,
       privacyPolicy: privacyText,
       tierBonusEnabled,
@@ -78,7 +71,7 @@ export default function AdminSettingsScreen() {
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [membershipRewards, vipMembershipRewards, vipMinTierId, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
+  }, [membershipRewards, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -159,27 +152,6 @@ export default function AdminSettingsScreen() {
 
   const removeMembershipReward = useCallback((index: number) => {
     setMembershipRewards((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const updateVipMembershipReward = useCallback((index: number, field: keyof MembershipReward, value: string) => {
-    setVipMembershipRewards((prev) =>
-      prev.map((r, i) => {
-        if (i !== index) return r;
-        return { ...r, [field]: value };
-      }),
-    );
-  }, []);
-
-  const addVipMembershipReward = useCallback(() => {
-    const color = TIER_COLORS[vipMembershipRewards.length % TIER_COLORS.length];
-    setVipMembershipRewards((prev) => [
-      ...prev,
-      { id: uid(), title: "", subtitle: "", accent: color },
-    ]);
-  }, [vipMembershipRewards.length]);
-
-  const removeVipMembershipReward = useCallback((index: number) => {
-    setVipMembershipRewards((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   return (
@@ -403,77 +375,6 @@ export default function AdminSettingsScreen() {
           >
             <Plus color="#34D399" size={16} />
             <Text style={styles.addMembershipBtnText}>Add membership reward</Text>
-          </Pressable>
-        </Panel>
-
-        <Panel testID="admin-vip-rewards-panel">
-          <SectionTitle
-            copy="Define exclusive one-time rewards available only to members who reach the VIP tier threshold. No points needed."
-            title="VIP Membership Rewards"
-          />
-          <View style={styles.vipTierSelector}>
-            <View style={styles.vipTierSelectorHeader}>
-              <Gem color="#A78BFA" size={14} />
-              <Text style={styles.vipTierSelectorLabel}>VIP tier threshold</Text>
-            </View>
-            <Text style={styles.vipTierSelectorCaption}>Members at or above this tier can see VIP rewards.</Text>
-            <View style={styles.vipTierOptions}>
-              {tiers.map((tier) => (
-                <Pressable
-                  key={tier.id}
-                  onPress={() => setVipMinTierId(tier.id)}
-                  style={({ pressed }) => [
-                    styles.vipTierOption,
-                    vipMinTierId === tier.id && styles.vipTierOptionActive,
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  testID={`admin-vip-tier-${tier.id}`}
-                >
-                  <View style={[styles.colorDot, { backgroundColor: tier.accent }]} />
-                  <Text style={[
-                    styles.vipTierOptionText,
-                    vipMinTierId === tier.id && styles.vipTierOptionTextActive,
-                  ]}>{tier.name || "Unnamed"}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-          {vipMembershipRewards.map((reward, index) => (
-            <View key={reward.id} style={styles.editCard}>
-              <View style={styles.editCardHeader}>
-                <Gem color="#A78BFA" size={14} />
-                <Text style={styles.editCardIndex}>VIP Reward {index + 1}</Text>
-                <Pressable
-                  onPress={() => removeVipMembershipReward(index)}
-                  style={styles.removeBtn}
-                  testID={`admin-remove-vip-reward-${index}`}
-                >
-                  <Trash2 color="#EF4444" size={14} />
-                </Pressable>
-              </View>
-              <InputField
-                label="Reward name"
-                onChangeText={(v) => updateVipMembershipReward(index, "title", v)}
-                placeholder="e.g. VIP Dessert Platter"
-                testID={`admin-vip-reward-title-${index}`}
-                value={reward.title}
-              />
-              <InputField
-                label="Description"
-                onChangeText={(v) => updateVipMembershipReward(index, "subtitle", v)}
-                placeholder="e.g. Complimentary dessert for VIP members"
-                testID={`admin-vip-reward-subtitle-${index}`}
-                value={reward.subtitle}
-              />
-            </View>
-          ))}
-          <Pressable
-            onPress={addVipMembershipReward}
-            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
-            testID="admin-add-vip-reward"
-          >
-            <Plus color="#A78BFA" size={16} />
-            <Text style={styles.addVipBtnText}>Add VIP reward</Text>
           </Pressable>
         </Panel>
 
@@ -707,61 +608,5 @@ const styles = StyleSheet.create({
     color: "#34D399",
     fontSize: 14,
     fontWeight: "700" as const,
-  },
-  addVipBtnText: {
-    color: "#A78BFA",
-    fontSize: 14,
-    fontWeight: "700" as const,
-  },
-  vipTierSelector: {
-    backgroundColor: "rgba(167, 139, 250, 0.04)",
-    borderColor: "rgba(167, 139, 250, 0.12)",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 10,
-    padding: 14,
-  },
-  vipTierSelectorHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  vipTierSelectorLabel: {
-    color: "#C4B5FD",
-    fontSize: 13,
-    fontWeight: "700" as const,
-  },
-  vipTierSelectorCaption: {
-    color: "#9B8EC4",
-    fontSize: 12,
-  },
-  vipTierOptions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  vipTierOption: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 247, 237, 0.04)",
-    borderColor: "rgba(247, 197, 139, 0.12)",
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  vipTierOptionActive: {
-    backgroundColor: "rgba(167, 139, 250, 0.15)",
-    borderColor: "rgba(167, 139, 250, 0.4)",
-  },
-  vipTierOptionText: {
-    color: "#C8AA94",
-    fontSize: 13,
-    fontWeight: "600" as const,
-  },
-  vipTierOptionTextActive: {
-    color: "#C4B5FD",
-    fontWeight: "800" as const,
   },
 });

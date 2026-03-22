@@ -10,7 +10,7 @@ import { useAuth } from "@/providers/auth-provider";
 
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle, Clock as ClockIcon, Gem } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle, Clock as ClockIcon } from "lucide-react-native";
 import type { MembershipReward } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -57,14 +57,6 @@ export default function MemberDashboardScreen() {
     const progress = (points - currentTier.minPoints) / range;
     return Math.min(1, Math.max(0, progress));
   }, [points, currentTier, nextTier]);
-
-  const isVipEligible = useMemo(() => {
-    if (!settings.vipMinTierId || !currentTier) return false;
-    const vipTierIndex = sortedTiers.findIndex(t => t.id === settings.vipMinTierId);
-    const currentTierIndex = sortedTiers.findIndex(t => t.id === currentTier.id);
-    if (vipTierIndex < 0) return false;
-    return currentTierIndex >= vipTierIndex;
-  }, [sortedTiers, currentTier, settings.vipMinTierId]);
 
   return (
     <>
@@ -211,35 +203,6 @@ export default function MemberDashboardScreen() {
             </View>
           )}
         </CollapsiblePanel>
-
-        {isVipEligible && (settings.vipMembershipRewards ?? []).length > 0 && (
-          <CollapsiblePanel
-            testID="member-vip-rewards-panel"
-            title="VIP Membership Rewards"
-            copy="Exclusive rewards for our top-tier VIP members."
-            icon={Gem}
-            iconColor="#A78BFA"
-          >
-            <View style={styles.vipNote}>
-              <Gem color="#A78BFA" size={16} />
-              <Text style={styles.vipNoteText}>These exclusive rewards are available only to VIP-tier members. Each can be claimed once by staff when you visit (limit one per day). Show your QR code!</Text>
-            </View>
-            {member?.id && hasMemberRedeemedAnyRewardToday(member.id) && (
-              <View style={styles.dailyLimitNote}>
-                <ClockIcon color="#F59E0B" size={14} />
-                <Text style={styles.dailyLimitNoteText}>You've already claimed a membership reward today. Come back tomorrow for more!</Text>
-              </View>
-            )}
-            {(settings.vipMembershipRewards ?? []).map((reward) => (
-              <VipRewardCard
-                key={reward.id}
-                reward={reward}
-                redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
-                dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
-              />
-            ))}
-          </CollapsiblePanel>
-        )}
 
         <CollapsiblePanel
           testID="member-actions-panel"
@@ -459,34 +422,6 @@ function MembershipRewardCard({ reward, redeemed, dailyLimitReached }: { reward:
         <View style={styles.membershipAvailableBadge}>
           <Crown color="#34D399" size={14} />
           <Text style={styles.membershipAvailableText}>Available</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-function VipRewardCard({ reward, redeemed, dailyLimitReached }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean }) {
-  return (
-    <View style={[styles.vipCard, redeemed && styles.vipCardRedeemed]} testID={`vip-reward-${reward.id}`}>
-      <View style={[styles.vipAccent, { backgroundColor: redeemed ? "#6B7280" : reward.accent || "#A78BFA" }]} />
-      <View style={styles.membershipBody}>
-        <Text style={[styles.vipTitle, redeemed && styles.vipTitleRedeemed]}>{reward.title}</Text>
-        <Text style={styles.membershipSubtitle}>{reward.subtitle}</Text>
-      </View>
-      {redeemed ? (
-        <View style={styles.membershipRedeemedBadge}>
-          <CheckCircle color="#6B7280" size={16} />
-          <Text style={styles.membershipRedeemedText}>Claimed</Text>
-        </View>
-      ) : dailyLimitReached ? (
-        <View style={styles.membershipDailyLimitBadge}>
-          <ClockIcon color="#F59E0B" size={14} />
-          <Text style={styles.membershipDailyLimitText}>Tomorrow</Text>
-        </View>
-      ) : (
-        <View style={styles.vipAvailableBadge}>
-          <Gem color="#A78BFA" size={14} />
-          <Text style={styles.vipAvailableText}>Available</Text>
         </View>
       )}
     </View>
@@ -1074,66 +1009,6 @@ const styles = StyleSheet.create({
   },
   membershipDailyLimitText: {
     color: "#F59E0B",
-    fontSize: 12,
-    fontWeight: "700" as const,
-  },
-  vipNote: {
-    alignItems: "center",
-    backgroundColor: "rgba(167, 139, 250, 0.06)",
-    borderColor: "rgba(167, 139, 250, 0.18)",
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  vipNoteText: {
-    color: "#C4B5FD",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600" as const,
-    lineHeight: 18,
-  },
-  vipCard: {
-    alignItems: "center",
-    backgroundColor: "rgba(167, 139, 250, 0.04)",
-    borderColor: "rgba(167, 139, 250, 0.14)",
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 14,
-    padding: 14,
-  },
-  vipCardRedeemed: {
-    backgroundColor: "rgba(107, 114, 128, 0.04)",
-    borderColor: "rgba(107, 114, 128, 0.14)",
-    opacity: 0.7,
-  },
-  vipAccent: {
-    borderRadius: 999,
-    height: 12,
-    width: 12,
-  },
-  vipTitle: {
-    color: "#FFF7ED",
-    fontSize: 15,
-    fontWeight: "800" as const,
-  },
-  vipTitleRedeemed: {
-    color: "#9CA3AF",
-  },
-  vipAvailableBadge: {
-    alignItems: "center",
-    backgroundColor: "rgba(167, 139, 250, 0.12)",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  vipAvailableText: {
-    color: "#A78BFA",
     fontSize: 12,
     fontWeight: "700" as const,
   },
