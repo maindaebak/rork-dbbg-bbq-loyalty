@@ -31,16 +31,32 @@ export default function MemberDashboardScreen() {
     return getActivePoints(member.id);
   }, [getActivePoints, member?.id]);
 
+  const sortedTiers = useMemo(() => [...settings.tiers].sort((a, b) => a.minPoints - b.minPoints), [settings.tiers]);
+
   const currentTier = useMemo(() => {
-    const sortedTiers = [...settings.tiers].sort((left, right) => left.minPoints - right.minPoints);
     return sortedTiers.reduce((activeTier, tier) => {
       if (points >= tier.minPoints) {
         return tier;
       }
-
       return activeTier;
     }, sortedTiers[0]);
-  }, [points, settings.tiers]);
+  }, [points, sortedTiers]);
+
+  const nextTier = useMemo(() => {
+    const currentIndex = sortedTiers.findIndex(t => t.id === currentTier?.id);
+    if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
+      return sortedTiers[currentIndex + 1];
+    }
+    return null;
+  }, [sortedTiers, currentTier?.id]);
+
+  const tierProgress = useMemo(() => {
+    if (!nextTier || !currentTier) return 1;
+    const range = nextTier.minPoints - currentTier.minPoints;
+    if (range <= 0) return 1;
+    const progress = (points - currentTier.minPoints) / range;
+    return Math.min(1, Math.max(0, progress));
+  }, [points, currentTier, nextTier]);
 
   return (
     <>
@@ -105,6 +121,41 @@ export default function MemberDashboardScreen() {
                 <Text style={styles.pointsTierBadgeText}>{currentTier?.name ?? "Member"}</Text>
               </View>
             </View>
+            {nextTier ? (
+              <View style={styles.tierProgressSection}>
+                <View style={styles.tierProgressLabels}>
+                  <View style={styles.tierProgressLabelLeft}>
+                    <Flame color="#1A120E" size={12} />
+                    <Text style={styles.tierProgressCurrentText}>{currentTier?.name}</Text>
+                  </View>
+                  <Text style={styles.tierProgressPtsText}>
+                    {formatPoints(nextTier.minPoints - points)} pts to go
+                  </Text>
+                  <View style={styles.tierProgressLabelRight}>
+                    <Text style={styles.tierProgressNextText}>{nextTier.name}</Text>
+                    <Flame color={nextTier.accent} size={12} />
+                  </View>
+                </View>
+                <View style={styles.tierProgressTrack}>
+                  <View
+                    style={[
+                      styles.tierProgressFill,
+                      {
+                        width: `${Math.max(4, tierProgress * 100)}%`,
+                        backgroundColor: nextTier.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.tierProgressSection}>
+                <View style={styles.tierMaxBadge}>
+                  <Flame color="#1A120E" size={13} />
+                  <Text style={styles.tierMaxText}>Max tier reached!</Text>
+                </View>
+              </View>
+            )}
           </View>
           <MemberQRCode memberId={member?.id ?? ""} memberName={member?.fullName ?? ""} />
         </CollapsiblePanel>
@@ -448,6 +499,66 @@ const styles = StyleSheet.create({
   pointsTierBadgeText: {
     color: "#1A120E",
     fontSize: 13,
+    fontWeight: "800" as const,
+  },
+  tierProgressSection: {
+    gap: 8,
+    marginTop: 2,
+  },
+  tierProgressLabels: {
+    alignItems: "center",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+  },
+  tierProgressLabelLeft: {
+    alignItems: "center",
+    flexDirection: "row" as const,
+    gap: 4,
+  },
+  tierProgressLabelRight: {
+    alignItems: "center",
+    flexDirection: "row" as const,
+    gap: 4,
+  },
+  tierProgressCurrentText: {
+    color: "#1A120E",
+    fontSize: 12,
+    fontWeight: "800" as const,
+  },
+  tierProgressNextText: {
+    color: "#1A120E",
+    fontSize: 12,
+    fontWeight: "800" as const,
+  },
+  tierProgressPtsText: {
+    color: "rgba(26, 18, 14, 0.55)",
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  tierProgressTrack: {
+    backgroundColor: "rgba(26, 18, 14, 0.12)",
+    borderRadius: 6,
+    height: 8,
+    overflow: "hidden" as const,
+    width: "100%",
+  },
+  tierProgressFill: {
+    borderRadius: 6,
+    height: 8,
+  },
+  tierMaxBadge: {
+    alignItems: "center",
+    alignSelf: "flex-start" as const,
+    backgroundColor: "rgba(26, 18, 14, 0.1)",
+    borderRadius: 999,
+    flexDirection: "row" as const,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tierMaxText: {
+    color: "#1A120E",
+    fontSize: 12,
     fontWeight: "800" as const,
   },
   pointsMetaText: {
