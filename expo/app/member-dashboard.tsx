@@ -120,7 +120,7 @@ export default function MemberDashboardScreen() {
             {nextTier ? (
               <View style={styles.tierProgressSection}>
                 <View style={styles.tierProgressLabels}>
-                  <View style={styles.tierProgressLabelLeft}>
+                  <View style={styles.tierProgressLabelLeftHighlight}>
                     <Flame color="#1A120E" size={12} />
                     <Text style={styles.tierProgressCurrentText}>{currentTier?.name}</Text>
                   </View>
@@ -511,6 +511,17 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     gap: 4,
   },
+  tierProgressLabelLeftHighlight: {
+    alignItems: "center",
+    backgroundColor: "rgba(26, 18, 14, 0.15)",
+    borderColor: "rgba(26, 18, 14, 0.2)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
   tierProgressLabelRight: {
     alignItems: "center",
     flexDirection: "row" as const,
@@ -519,7 +530,8 @@ const styles = StyleSheet.create({
   tierProgressCurrentText: {
     color: "#1A120E",
     fontSize: 12,
-    fontWeight: "800" as const,
+    fontWeight: "900" as const,
+    letterSpacing: 0.3,
   },
   tierProgressNextText: {
     color: "#1A120E",
