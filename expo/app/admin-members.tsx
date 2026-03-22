@@ -11,8 +11,8 @@ import {
   Users,
   X,
 } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
-import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import {
   ActionButton,
   CollapsiblePanel,
@@ -22,6 +22,7 @@ import {
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
 
+import { List } from "lucide-react-native";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
 
 export default function AdminMembersScreen() {
@@ -34,6 +35,17 @@ export default function AdminMembersScreen() {
   const [nameSearch, setNameSearch] = useState<string>("");
   const [nameSearchResults, setNameSearchResults] = useState<StoredMember[]>([]);
   const [nameSearchPerformed, setNameSearchPerformed] = useState<boolean>(false);
+  const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
+  const [allMembersFilter, setAllMembersFilter] = useState<string>("");
+
+  const sortedMembers = useMemo(() => {
+    const sorted = [...members].sort((a, b) => a.fullName.localeCompare(b.fullName));
+    if (!allMembersFilter.trim()) return sorted;
+    const q = allMembersFilter.trim().toLowerCase();
+    return sorted.filter(
+      (m) => m.fullName.toLowerCase().includes(q) || m.phone.includes(q)
+    );
+  }, [members, allMembersFilter]);
 
   const [nativePermission, nativeRequestPermission] = useCameraPermissions();
   const permission: PermissionResponse | null = Platform.OS !== "web" ? nativePermission : null;
@@ -143,6 +155,82 @@ export default function AdminMembersScreen() {
     <>
       <Stack.Screen options={{ title: "Member Search", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
 
+      {showAllMembers && (
+        <Modal
+          animationType="slide"
+          onRequestClose={() => setShowAllMembers(false)}
+          visible={showAllMembers}
+        >
+          <View style={styles.allMembersContainer}>
+            <View style={styles.allMembersHeader}>
+              <Text style={styles.allMembersTitle}>All Members</Text>
+              <Text style={styles.allMembersCount}>{sortedMembers.length} of {members.length}</Text>
+              <Pressable
+                onPress={() => setShowAllMembers(false)}
+                style={({ pressed }) => [styles.allMembersClose, pressed && { opacity: 0.7 }]}
+                testID="all-members-close-button"
+              >
+                <X color="#FFF7ED" size={22} />
+              </Pressable>
+            </View>
+            <View style={styles.allMembersSearchWrap}>
+              <Search color="#C8AA94" size={16} />
+              <TextInput
+                style={styles.allMembersSearchInput}
+                placeholder="Filter by name or phone..."
+                placeholderTextColor="#8B7355"
+                value={allMembersFilter}
+                onChangeText={setAllMembersFilter}
+                testID="all-members-filter-input"
+                autoCorrect={false}
+              />
+              {allMembersFilter.length > 0 && (
+                <Pressable onPress={() => setAllMembersFilter("")} testID="all-members-clear-filter">
+                  <X color="#C8AA94" size={16} />
+                </Pressable>
+              )}
+            </View>
+            <FlatList
+              data={sortedMembers}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.allMembersListContent}
+              ItemSeparatorComponent={() => <View style={styles.allMembersSeparator} />}
+              ListEmptyComponent={
+                <View style={styles.allMembersEmpty}>
+                  <User color="#C8AA94" size={28} />
+                  <Text style={styles.allMembersEmptyText}>No members found</Text>
+                </View>
+              }
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowAllMembers(false);
+                    navigateToMember(item.id);
+                  }}
+                  style={({ pressed }) => [styles.allMemberRow, pressed && { backgroundColor: "rgba(247, 197, 139, 0.08)" }]}
+                  testID={`all-member-${item.id}`}
+                >
+                  <View style={styles.allMemberAvatar}>
+                    <Text style={styles.allMemberAvatarText}>
+                      {item.fullName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.allMemberInfo}>
+                    <Text style={styles.allMemberName}>{item.fullName}</Text>
+                    <Text style={styles.allMemberPhone}>{item.phone}</Text>
+                  </View>
+                  <View style={styles.allMemberPoints}>
+                    <Text style={styles.allMemberPointsText}>{item.points} pts</Text>
+                  </View>
+                  <ChevronRight color="#C8AA94" size={16} />
+                </Pressable>
+              )}
+            />
+          </View>
+        </Modal>
+      )}
+
       {showScanner && Platform.OS !== "web" && (
         <Modal
           animationType="slide"
@@ -212,6 +300,22 @@ export default function AdminMembersScreen() {
               <Text style={styles.nameNoResultText}>No members found matching "{nameSearch}"</Text>
             </View>
           )}
+
+          <Pressable
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setAllMembersFilter("");
+              setShowAllMembers(true);
+            }}
+            style={({ pressed }) => [styles.viewAllButton, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
+            testID="admin-view-all-members-button"
+          >
+            <View style={styles.viewAllIconWrap}>
+              <List color="#F7C58B" size={18} />
+            </View>
+            <Text style={styles.viewAllText}>View All Members ({members.length})</Text>
+            <ChevronRight color="#C8AA94" size={16} />
+          </Pressable>
 
           {nameSearchResults.length > 0 && (
             <View style={styles.nameResultsList}>
@@ -471,6 +575,143 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700" as const,
     marginTop: 2,
+  },
+  viewAllButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.06)",
+    borderColor: "rgba(247, 197, 139, 0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 10,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  viewAllIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 10,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  viewAllText: {
+    color: "#FFF7ED",
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  allMembersContainer: {
+    backgroundColor: "#1A0F0A",
+    flex: 1,
+  },
+  allMembersHeader: {
+    alignItems: "center",
+    backgroundColor: "#241610",
+    borderBottomColor: "rgba(247, 197, 139, 0.12)",
+    borderBottomWidth: 1,
+    flexDirection: "row" as const,
+    gap: 10,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+  },
+  allMembersTitle: {
+    color: "#FFF7ED",
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "800" as const,
+  },
+  allMembersCount: {
+    color: "#C8AA94",
+    fontSize: 13,
+    fontWeight: "600" as const,
+  },
+  allMembersClose: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.08)",
+    borderRadius: 999,
+    height: 36,
+    justifyContent: "center",
+    marginLeft: 6,
+    width: 36,
+  },
+  allMembersSearchWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderBottomColor: "rgba(247, 197, 139, 0.08)",
+    borderBottomWidth: 1,
+    flexDirection: "row" as const,
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  allMembersSearchInput: {
+    color: "#FFF7ED",
+    flex: 1,
+    fontSize: 15,
+  },
+  allMembersListContent: {
+    paddingBottom: 40,
+  },
+  allMembersSeparator: {
+    backgroundColor: "rgba(247, 197, 139, 0.06)",
+    height: 1,
+    marginLeft: 72,
+  },
+  allMembersEmpty: {
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 60,
+  },
+  allMembersEmptyText: {
+    color: "#C8AA94",
+    fontSize: 14,
+  },
+  allMemberRow: {
+    alignItems: "center",
+    flexDirection: "row" as const,
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  allMemberAvatar: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  allMemberAvatarText: {
+    color: "#F7C58B",
+    fontSize: 16,
+    fontWeight: "800" as const,
+  },
+  allMemberInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  allMemberName: {
+    color: "#FFF7ED",
+    fontSize: 15,
+    fontWeight: "700" as const,
+  },
+  allMemberPhone: {
+    color: "#C8AA94",
+    fontSize: 12,
+  },
+  allMemberPoints: {
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  allMemberPointsText: {
+    color: "#86EFAC",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
   nameResultArrow: {
     alignItems: "center",
