@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { AdBanner } from "@/components/loyalty/ad-banner";
 import { router } from "expo-router";
 import { ChevronDown, ChevronRight, Gift, type LucideIcon } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
@@ -83,6 +84,7 @@ export function LoyaltyScreen({
             <Text style={styles.heroSubtitle}>{subtitle}</Text>
           </View>
           {children}
+          <AdBanner />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
