@@ -188,20 +188,27 @@ export default function MemberDashboardScreen() {
               <Text style={styles.dailyLimitNoteText}>You've already claimed a membership reward today. Come back tomorrow for more!</Text>
             </View>
           )}
-          {(settings.membershipRewards ?? []).length > 0 ? (
-            (settings.membershipRewards ?? []).map((reward) => (
-              <MembershipRewardCard
-                key={reward.id}
-                reward={reward}
-                redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
-                dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
-              />
-            ))
-          ) : (
-            <View style={styles.membershipEmpty}>
-              <Text style={styles.membershipEmptyText}>No membership rewards available yet. Check back soon!</Text>
-            </View>
-          )}
+          {(() => {
+            const visibleRewards = (settings.membershipRewards ?? []).filter((reward) => {
+              const tiers = reward.visibleTiers ?? [];
+              if (tiers.length === 0) return true;
+              return currentTier ? tiers.includes(currentTier.id) : false;
+            });
+            return visibleRewards.length > 0 ? (
+              visibleRewards.map((reward) => (
+                <MembershipRewardCard
+                  key={reward.id}
+                  reward={reward}
+                  redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
+                  dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
+                />
+              ))
+            ) : (
+              <View style={styles.membershipEmpty}>
+                <Text style={styles.membershipEmptyText}>No membership rewards available for your current tier. Keep earning points!</Text>
+              </View>
+            );
+          })()}
         </CollapsiblePanel>
 
         <CollapsiblePanel

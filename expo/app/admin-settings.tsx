@@ -1,6 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
 import {
+  Check,
   CircleDollarSign,
   Crown,
   FileText,
@@ -146,12 +147,25 @@ export default function AdminSettingsScreen() {
     const color = TIER_COLORS[membershipRewards.length % TIER_COLORS.length];
     setMembershipRewards((prev) => [
       ...prev,
-      { id: uid(), title: "", subtitle: "", accent: color },
+      { id: uid(), title: "", subtitle: "", accent: color, visibleTiers: [] },
     ]);
   }, [membershipRewards.length]);
 
   const removeMembershipReward = useCallback((index: number) => {
     setMembershipRewards((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const toggleMembershipRewardTier = useCallback((rewardIndex: number, tierId: string) => {
+    setMembershipRewards((prev) =>
+      prev.map((r, i) => {
+        if (i !== rewardIndex) return r;
+        const current = r.visibleTiers ?? [];
+        const next = current.includes(tierId)
+          ? current.filter((id) => id !== tierId)
+          : [...current, tierId];
+        return { ...r, visibleTiers: next };
+      }),
+    );
   }, []);
 
   return (
@@ -366,6 +380,37 @@ export default function AdminSettingsScreen() {
                 testID={`admin-membership-reward-subtitle-${index}`}
                 value={reward.subtitle}
               />
+              <View style={styles.tierVisibilitySection}>
+                <Text style={styles.tierVisibilityLabel}>Visible to tiers</Text>
+                <Text style={styles.tierVisibilityHint}>
+                  {(reward.visibleTiers ?? []).length === 0
+                    ? "Visible to all tiers (none selected = all)"
+                    : `Visible to ${(reward.visibleTiers ?? []).length} selected tier(s)`}
+                </Text>
+                <View style={styles.tierChipGrid}>
+                  {tiers.map((tier) => {
+                    const isSelected = (reward.visibleTiers ?? []).includes(tier.id);
+                    return (
+                      <Pressable
+                        key={tier.id}
+                        onPress={() => toggleMembershipRewardTier(index, tier.id)}
+                        style={({ pressed }) => [
+                          styles.tierChip,
+                          isSelected && { backgroundColor: tier.accent, borderColor: tier.accent },
+                          pressed && { opacity: 0.8 },
+                        ]}
+                        testID={`admin-membership-reward-tier-${index}-${tier.id}`}
+                      >
+                        <View style={[styles.tierChipDot, { backgroundColor: isSelected ? "#1A120E" : tier.accent }]} />
+                        <Text style={[styles.tierChipText, isSelected && { color: "#1A120E" }]}>
+                          {tier.name || "Unnamed"}
+                        </Text>
+                        {isSelected && <Check color="#1A120E" size={14} />}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
             </View>
           ))}
           <Pressable
@@ -607,6 +652,45 @@ const styles = StyleSheet.create({
   addMembershipBtnText: {
     color: "#34D399",
     fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  tierVisibilitySection: {
+    gap: 8,
+  },
+  tierVisibilityLabel: {
+    color: "#F8E7D0",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+  tierVisibilityHint: {
+    color: "#8E6D56",
+    fontSize: 12,
+    fontWeight: "600" as const,
+  },
+  tierChipGrid: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 8,
+  },
+  tierChip: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.2)",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  tierChipDot: {
+    borderRadius: 999,
+    height: 8,
+    width: 8,
+  },
+  tierChipText: {
+    color: "#F8E7D0",
+    fontSize: 13,
     fontWeight: "700" as const,
   },
 });
