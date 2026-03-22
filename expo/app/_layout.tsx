@@ -41,6 +41,18 @@ export default function RootLayout() {
     void SplashScreen.hideAsync();
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const meta = document.createElement("meta");
+      meta.name = "google-adsense-account";
+      meta.content = "ca-pub-7133225364355808";
+      document.head.appendChild(meta);
+      return () => {
+        document.head.removeChild(meta);
+      };
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
         <AuthProvider>
