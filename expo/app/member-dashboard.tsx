@@ -166,27 +166,31 @@ export default function MemberDashboardScreen() {
           ))}
         </CollapsiblePanel>
 
-        {settings.membershipRewards.length > 0 && (
-          <CollapsiblePanel
-            testID="member-membership-rewards-panel"
-            title="Membership rewards"
-            copy="Exclusive one-time rewards just for being a member. No points needed!"
-            icon={Crown}
-            iconColor="#34D399"
-          >
-            <View style={styles.membershipNote}>
-              <Crown color="#34D399" size={16} />
-              <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be claimed once by staff when you visit. Show your QR code!</Text>
-            </View>
-            {settings.membershipRewards.map((reward) => (
+        <CollapsiblePanel
+          testID="member-membership-rewards-panel"
+          title="Membership rewards"
+          copy="Exclusive one-time rewards just for being a member. No points needed!"
+          icon={Crown}
+          iconColor="#34D399"
+        >
+          <View style={styles.membershipNote}>
+            <Crown color="#34D399" size={16} />
+            <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be claimed once by staff when you visit. Show your QR code!</Text>
+          </View>
+          {(settings.membershipRewards ?? []).length > 0 ? (
+            (settings.membershipRewards ?? []).map((reward) => (
               <MembershipRewardCard
                 key={reward.id}
                 reward={reward}
                 redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
               />
-            ))}
-          </CollapsiblePanel>
-        )}
+            ))
+          ) : (
+            <View style={styles.membershipEmpty}>
+              <Text style={styles.membershipEmptyText}>No membership rewards available yet. Check back soon!</Text>
+            </View>
+          )}
+        </CollapsiblePanel>
 
         <CollapsiblePanel
           testID="member-options-panel"
@@ -815,5 +819,20 @@ const styles = StyleSheet.create({
     color: "#34D399",
     fontSize: 12,
     fontWeight: "700" as const,
+  },
+  membershipEmpty: {
+    alignItems: "center",
+    backgroundColor: "rgba(52, 211, 153, 0.04)",
+    borderColor: "rgba(52, 211, 153, 0.1)",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  membershipEmptyText: {
+    color: "#A7C4B5",
+    fontSize: 13,
+    fontWeight: "600" as const,
+    textAlign: "center" as const,
   },
 });
