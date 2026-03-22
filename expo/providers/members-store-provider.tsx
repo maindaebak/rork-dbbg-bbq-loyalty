@@ -7,6 +7,13 @@ import type { LoyaltyTier } from "@/constants/loyalty-program";
 import { supabase } from "@/lib/supabase";
 
 const MEMBERS_STORAGE_KEY = "dbbg-members-store";
+const MEMBERSHIP_REDEMPTIONS_KEY = "dbbg-membership-redemptions";
+
+export interface MembershipRedemption {
+  memberId: string;
+  rewardId: string;
+  redeemedAt: string;
+}
 
 export interface StoredMember {
   id: string;
@@ -134,9 +141,50 @@ async function fetchMembersFromSupabase(): Promise<StoredMember[]> {
   }
 }
 
+async function fetchMembershipRedemptions(): Promise<MembershipRedemption[]> {
+  try {
+    console.log("[MembersStore] Fetching membership redemptions from Supabase...");
+    const { data, error } = await supabase
+      .from("membership_redemptions")
+      .select("*");
+
+    if (error) {
+      console.error("[MembersStore] Supabase membership_redemptions error:", error.message);
+      throw error;
+    }
+
+    return (data ?? []).map((r: { member_id: string; reward_id: string; redeemed_at: string }) => ({
+      memberId: r.member_id,
+      rewardId: r.reward_id,
+      redeemedAt: r.redeemed_at,
+    }));
+  } catch (err) {
+    console.warn("[MembersStore] Falling back to local for membership redemptions", err);
+    const raw = await AsyncStorage.getItem(MEMBERSHIP_REDEMPTIONS_KEY);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as MembershipRedemption[];
+    } catch {
+      return [];
+    }
+  }
+}
+
 export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [members, setMembers] = useState<StoredMember[]>([]);
+  const [membershipRedemptions, setMembershipRedemptions] = useState<MembershipRedemption[]>([]);
+
+  const redemptionsQuery = useQuery({
+    queryKey: ["membership-redemptions"],
+    queryFn: fetchMembershipRedemptions,
+  });
+
+  useEffect(() => {
+    if (redemptionsQuery.data) {
+      setMembershipRedemptions(redemptionsQuery.data);
+    }
+  }, [redemptionsQuery.data]);
 
   const membersQuery = useQuery({
     queryKey: ["members-store"],
@@ -561,6 +609,70 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     [deleteMemberMutation],
   );
 
+  const redeemMembershipRewardMutation = useMutation({
+    mutationFn: async ({ memberId, rewardId }: { memberId: string; rewardId: string }) => {
+      console.log("[MembersStore] Redeeming membership reward", rewardId, "for member", memberId);
+      const redemption = {
+        member_id: memberId,
+        reward_id: rewardId,
+        redeemed_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from("membership_redemptions").insert(redemption);
+
+      if (error) {
+        console.error("[MembersStore] Supabase membership redemption error:", error.message);
+        const updated = [...membershipRedemptions, { memberId, rewardId, redeemedAt: redemption.redeemed_at }];
+        await AsyncStorage.setItem(MEMBERSHIP_REDEMPTIONS_KEY, JSON.stringify(updated));
+        console.log("[MembersStore] Saved membership redemption to local fallback");
+      } else {
+        console.log("[MembersStore] Saved membership redemption to Supabase");
+      }
+
+      return { memberId, rewardId, redeemedAt: redemption.redeemed_at };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["membership-redemptions"] });
+    },
+  });
+
+  const redeemMembershipReward = useCallback(
+    (memberId: string, rewardId: string) => {
+      const already = membershipRedemptions.some(
+        (r) => r.memberId === memberId && r.rewardId === rewardId
+      );
+      if (already) {
+        console.log("[MembersStore] Membership reward already redeemed");
+        return false;
+      }
+      const optimistic: MembershipRedemption = {
+        memberId,
+        rewardId,
+        redeemedAt: new Date().toISOString(),
+      };
+      setMembershipRedemptions((prev) => [...prev, optimistic]);
+      redeemMembershipRewardMutation.mutate({ memberId, rewardId });
+      return true;
+    },
+    [membershipRedemptions, redeemMembershipRewardMutation],
+  );
+
+  const hasMemberRedeemedReward = useCallback(
+    (memberId: string, rewardId: string): boolean => {
+      return membershipRedemptions.some(
+        (r) => r.memberId === memberId && r.rewardId === rewardId
+      );
+    },
+    [membershipRedemptions],
+  );
+
+  const getMemberRedemptions = useCallback(
+    (memberId: string): MembershipRedemption[] => {
+      return membershipRedemptions.filter((r) => r.memberId === memberId);
+    },
+    [membershipRedemptions],
+  );
+
   return useMemo(
     () => ({
       members,
@@ -574,6 +686,10 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       updateMemberContact,
       updateMemberProfile,
       deleteMember,
+      membershipRedemptions,
+      redeemMembershipReward,
+      hasMemberRedeemedReward,
+      getMemberRedemptions,
     }),
     [
       members,
@@ -587,6 +703,10 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       updateMemberContact,
       updateMemberProfile,
       deleteMember,
+      membershipRedemptions,
+      redeemMembershipReward,
+      hasMemberRedeemedReward,
+      getMemberRedemptions,
     ],
   );
 });

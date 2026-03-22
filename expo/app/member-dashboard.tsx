@@ -10,7 +10,8 @@ import { Alert } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, Lock, Check } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle } from "lucide-react-native";
+import type { MembershipReward } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -23,7 +24,7 @@ function formatPoints(value: number): string {
 export default function MemberDashboardScreen() {
   const { settings } = useLoyaltyProgram();
   const { member, logout } = useAuth();
-  const { getActivePoints } = useMembersStore();
+  const { getActivePoints, hasMemberRedeemedReward, redeemMembershipReward } = useMembersStore();
 
   const points = useMemo<number>(() => {
     if (!member?.id) return 0;
@@ -164,6 +165,50 @@ export default function MemberDashboardScreen() {
             <RewardCard item={item} key={item.id} />
           ))}
         </CollapsiblePanel>
+
+        {settings.membershipRewards.length > 0 && (
+          <CollapsiblePanel
+            testID="member-membership-rewards-panel"
+            title="Membership rewards"
+            copy="Exclusive one-time rewards just for being a member. No points needed!"
+            icon={Crown}
+            iconColor="#34D399"
+          >
+            <View style={styles.membershipNote}>
+              <Crown color="#34D399" size={16} />
+              <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be redeemed once. Show your QR code to staff to claim.</Text>
+            </View>
+            {settings.membershipRewards.map((reward) => (
+              <MembershipRewardCard
+                key={reward.id}
+                reward={reward}
+                redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
+                onRedeem={() => {
+                  if (!member?.id) return;
+                  Alert.alert(
+                    "Redeem Reward",
+                    `Are you sure you want to redeem "${reward.title}"? This can only be done once.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Redeem",
+                        onPress: () => {
+                          const success = redeemMembershipReward(member.id, reward.id);
+                          if (success) {
+                            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Alert.alert("Redeemed!", `You've claimed "${reward.title}". Show this to staff!`);
+                          } else {
+                            Alert.alert("Already Redeemed", "You've already claimed this reward.");
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+              />
+            ))}
+          </CollapsiblePanel>
+        )}
 
         <CollapsiblePanel
           testID="member-options-panel"
@@ -314,6 +359,33 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
             );
           })}
         </View>
+      )}
+    </View>
+  );
+}
+
+function MembershipRewardCard({ reward, redeemed, onRedeem }: { reward: MembershipReward; redeemed: boolean; onRedeem: () => void }) {
+  return (
+    <View style={[styles.membershipCard, redeemed && styles.membershipCardRedeemed]} testID={`membership-reward-${reward.id}`}>
+      <View style={[styles.membershipAccent, { backgroundColor: redeemed ? "#6B7280" : reward.accent }]} />
+      <View style={styles.membershipBody}>
+        <Text style={[styles.membershipTitle, redeemed && styles.membershipTitleRedeemed]}>{reward.title}</Text>
+        <Text style={styles.membershipSubtitle}>{reward.subtitle}</Text>
+      </View>
+      {redeemed ? (
+        <View style={styles.membershipRedeemedBadge}>
+          <CheckCircle color="#6B7280" size={16} />
+          <Text style={styles.membershipRedeemedText}>Claimed</Text>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onRedeem}
+          style={({ pressed }) => [styles.membershipClaimBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }]}
+          testID={`membership-claim-${reward.id}`}
+        >
+          <Crown color="#1A120E" size={14} />
+          <Text style={styles.membershipClaimText}>Claim</Text>
+        </Pressable>
       )}
     </View>
   );
@@ -685,6 +757,89 @@ const styles = StyleSheet.create({
   welcomeLine3: {
     color: "#FFF7ED",
     fontSize: 20,
+    fontWeight: "800" as const,
+  },
+  membershipNote: {
+    alignItems: "center",
+    backgroundColor: "rgba(52, 211, 153, 0.06)",
+    borderColor: "rgba(52, 211, 153, 0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  membershipNoteText: {
+    color: "#A7C4B5",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  membershipCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(52, 211, 153, 0.04)",
+    borderColor: "rgba(52, 211, 153, 0.14)",
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 14,
+    padding: 14,
+  },
+  membershipCardRedeemed: {
+    backgroundColor: "rgba(107, 114, 128, 0.04)",
+    borderColor: "rgba(107, 114, 128, 0.14)",
+    opacity: 0.7,
+  },
+  membershipAccent: {
+    borderRadius: 999,
+    height: 12,
+    width: 12,
+  },
+  membershipBody: {
+    flex: 1,
+    gap: 4,
+  },
+  membershipTitle: {
+    color: "#FFF7ED",
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  membershipTitleRedeemed: {
+    color: "#9CA3AF",
+  },
+  membershipSubtitle: {
+    color: "#C9AD99",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  membershipRedeemedBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(107, 114, 128, 0.12)",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  membershipRedeemedText: {
+    color: "#9CA3AF",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  membershipClaimBtn: {
+    alignItems: "center",
+    backgroundColor: "#34D399",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  membershipClaimText: {
+    color: "#1A120E",
+    fontSize: 13,
     fontWeight: "800" as const,
   },
 });

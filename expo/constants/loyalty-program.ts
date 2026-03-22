@@ -10,10 +10,18 @@ export interface LoyaltyTier {
 
 export interface LoyaltyReward extends RewardItem {}
 
+export interface MembershipReward {
+  id: string;
+  title: string;
+  subtitle: string;
+  accent: string;
+}
+
 export interface LoyaltyProgramSettings {
   pointsPerDollar: number;
   tiers: LoyaltyTier[];
   rewards: LoyaltyReward[];
+  membershipRewards: MembershipReward[];
   termsAndConditions: string;
   privacyPolicy: string;
   tierBonusEnabled: boolean;
@@ -117,6 +125,14 @@ export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
   pointsPerDollar: 8,
   termsAndConditions: DEFAULT_TERMS,
   privacyPolicy: DEFAULT_PRIVACY_POLICY,
+  membershipRewards: [
+    {
+      id: "welcome-drink",
+      title: "Welcome Drink",
+      subtitle: "Complimentary soft drink for new members",
+      accent: "#34D399",
+    },
+  ],
   tiers: [
     {
       id: "ember",

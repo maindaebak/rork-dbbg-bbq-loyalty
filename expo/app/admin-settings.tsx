@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
 import {
   CircleDollarSign,
+  Crown,
   FileText,
   Gift,
   Plus,
@@ -21,7 +22,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import type { LoyaltyProgramSettings, LoyaltyReward, LoyaltyTier } from "@/constants/loyalty-program";
+import type { LoyaltyProgramSettings, LoyaltyReward, LoyaltyTier, MembershipReward } from "@/constants/loyalty-program";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 
 const TIER_COLORS = ["#F59E0B", "#FB7185", "#F97316", "#A78BFA", "#34D399", "#60A5FA"];
@@ -36,6 +37,7 @@ export default function AdminSettingsScreen() {
   const [pointsPerDollar, setPointsPerDollar] = useState<string>(String(settings.pointsPerDollar));
   const [tiers, setTiers] = useState<LoyaltyTier[]>(settings.tiers);
   const [rewards, setRewards] = useState<LoyaltyReward[]>(settings.rewards);
+  const [membershipRewards, setMembershipRewards] = useState<MembershipReward[]>(settings.membershipRewards ?? []);
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
   const [privacyText, setPrivacyText] = useState<string>(settings.privacyPolicy ?? "");
   const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
@@ -44,6 +46,7 @@ export default function AdminSettingsScreen() {
     setPointsPerDollar(String(settings.pointsPerDollar));
     setTiers(settings.tiers);
     setRewards(settings.rewards);
+    setMembershipRewards(settings.membershipRewards ?? []);
     setTermsText(settings.termsAndConditions ?? "");
     setPrivacyText(settings.privacyPolicy ?? "");
     setTierBonusEnabled(settings.tierBonusEnabled ?? true);
@@ -59,6 +62,7 @@ export default function AdminSettingsScreen() {
       pointsPerDollar: ppd,
       tiers,
       rewards,
+      membershipRewards,
       termsAndConditions: termsText,
       privacyPolicy: privacyText,
       tierBonusEnabled,
@@ -67,7 +71,7 @@ export default function AdminSettingsScreen() {
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
+  }, [membershipRewards, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -127,6 +131,27 @@ export default function AdminSettingsScreen() {
 
   const removeReward = useCallback((index: number) => {
     setRewards((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const updateMembershipReward = useCallback((index: number, field: keyof MembershipReward, value: string) => {
+    setMembershipRewards((prev) =>
+      prev.map((r, i) => {
+        if (i !== index) return r;
+        return { ...r, [field]: value };
+      }),
+    );
+  }, []);
+
+  const addMembershipReward = useCallback(() => {
+    const color = TIER_COLORS[membershipRewards.length % TIER_COLORS.length];
+    setMembershipRewards((prev) => [
+      ...prev,
+      { id: uid(), title: "", subtitle: "", accent: color },
+    ]);
+  }, [membershipRewards.length]);
+
+  const removeMembershipReward = useCallback((index: number) => {
+    setMembershipRewards((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   return (
@@ -308,6 +333,50 @@ export default function AdminSettingsScreen() {
           </Pressable>
         </Panel>
 
+
+        <Panel testID="admin-membership-rewards-panel">
+          <SectionTitle
+            copy="Define one-time rewards available to all members. No points needed — each can be claimed once per member."
+            title="Membership Only Rewards"
+          />
+          {membershipRewards.map((reward, index) => (
+            <View key={reward.id} style={styles.editCard}>
+              <View style={styles.editCardHeader}>
+                <Crown color="#34D399" size={14} />
+                <Text style={styles.editCardIndex}>Membership Reward {index + 1}</Text>
+                <Pressable
+                  onPress={() => removeMembershipReward(index)}
+                  style={styles.removeBtn}
+                  testID={`admin-remove-membership-reward-${index}`}
+                >
+                  <Trash2 color="#EF4444" size={14} />
+                </Pressable>
+              </View>
+              <InputField
+                label="Reward name"
+                onChangeText={(v) => updateMembershipReward(index, "title", v)}
+                placeholder="e.g. Welcome Drink"
+                testID={`admin-membership-reward-title-${index}`}
+                value={reward.title}
+              />
+              <InputField
+                label="Description"
+                onChangeText={(v) => updateMembershipReward(index, "subtitle", v)}
+                placeholder="e.g. Complimentary soft drink for new members"
+                testID={`admin-membership-reward-subtitle-${index}`}
+                value={reward.subtitle}
+              />
+            </View>
+          ))}
+          <Pressable
+            onPress={addMembershipReward}
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+            testID="admin-add-membership-reward"
+          >
+            <Plus color="#34D399" size={16} />
+            <Text style={styles.addMembershipBtnText}>Add membership reward</Text>
+          </Pressable>
+        </Panel>
 
         <Panel testID="admin-privacy-panel">
           <SectionTitle
@@ -535,5 +604,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800" as const,
   },
-
+  addMembershipBtnText: {
+    color: "#34D399",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
 });
