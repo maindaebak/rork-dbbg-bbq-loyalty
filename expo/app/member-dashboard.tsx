@@ -395,7 +395,7 @@ function MemberPerksSection({ perks, currentTierId, tiers }: { perks: MemberPerk
                 </View>
                 <View style={styles.perkTextWrap}>
                   <View style={styles.perkTitleRow}>
-                    <Text style={[styles.perkTitle, !isUnlocked && styles.perkTitleLocked]} numberOfLines={1}>
+                    <Text style={[styles.perkTitle, !isUnlocked && styles.perkTitleLocked]}>
                       {perk.title}
                     </Text>
                     {isUnlocked && (
