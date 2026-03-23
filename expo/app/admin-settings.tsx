@@ -1,6 +1,8 @@
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   CircleDollarSign,
   Crown,
@@ -166,6 +168,19 @@ export default function AdminSettingsScreen() {
         return { ...r, visibleTiers: next };
       }),
     );
+  }, []);
+
+  const moveMembershipReward = useCallback((index: number, direction: "up" | "down") => {
+    setMembershipRewards((prev) => {
+      const newArr = [...prev];
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newArr.length) return prev;
+      const temp = newArr[targetIndex];
+      newArr[targetIndex] = newArr[index];
+      newArr[index] = temp;
+      return newArr;
+    });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   return (
@@ -358,6 +373,24 @@ export default function AdminSettingsScreen() {
               <View style={styles.editCardHeader}>
                 <Crown color="#34D399" size={14} />
                 <Text style={styles.editCardIndex}>Membership Reward {index + 1}</Text>
+                <View style={styles.reorderBtnGroup}>
+                  <Pressable
+                    onPress={() => moveMembershipReward(index, "up")}
+                    style={[styles.reorderBtn, index === 0 && styles.reorderBtnDisabled]}
+                    disabled={index === 0}
+                    testID={`admin-move-up-membership-reward-${index}`}
+                  >
+                    <ArrowUp color={index === 0 ? "#5A4A3F" : "#F7C58B"} size={14} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => moveMembershipReward(index, "down")}
+                    style={[styles.reorderBtn, index === membershipRewards.length - 1 && styles.reorderBtnDisabled]}
+                    disabled={index === membershipRewards.length - 1}
+                    testID={`admin-move-down-membership-reward-${index}`}
+                  >
+                    <ArrowDown color={index === membershipRewards.length - 1 ? "#5A4A3F" : "#F7C58B"} size={14} />
+                  </Pressable>
+                </View>
                 <Pressable
                   onPress={() => removeMembershipReward(index)}
                   style={styles.removeBtn}
@@ -557,6 +590,22 @@ const styles = StyleSheet.create({
     height: 28,
     justifyContent: "center",
     width: 28,
+  },
+  reorderBtnGroup: {
+    alignItems: "center",
+    flexDirection: "row" as const,
+    gap: 4,
+  },
+  reorderBtn: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 8,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  reorderBtnDisabled: {
+    opacity: 0.4,
   },
   termsCharCount: {
     color: "#8E6D56",
