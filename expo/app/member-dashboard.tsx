@@ -227,14 +227,21 @@ export default function MemberDashboardScreen() {
           {(settings.membershipRewards ?? []).length > 0 ? (
             (settings.membershipRewards ?? []).map((reward) => {
               const requiredTiers = reward.requiredTiers ?? [];
-              const isUnlocked = requiredTiers.length === 0 || (currentTier ? requiredTiers.includes(currentTier.id) : false);
+              const currentTierIndex = sortedTiers.findIndex(t => t.id === currentTier?.id);
+              const lowestRequiredTierIndex = requiredTiers.length > 0
+                ? Math.min(...requiredTiers.map(tid => {
+                    const idx = sortedTiers.findIndex(t => t.id === tid);
+                    return idx >= 0 ? idx : Infinity;
+                  }))
+                : -1;
+              const isUnlocked = requiredTiers.length === 0 || (currentTierIndex >= 0 && currentTierIndex >= lowestRequiredTierIndex);
               const requiredTierNames = requiredTiers
                 .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
                 .filter(Boolean);
               const lowestRequiredTier = requiredTiers.length > 0
                 ? sortedTiers.find((t) => requiredTiers.includes(t.id))
                 : null;
-              console.log(`[MemberDashboard] Reward "${reward.title}" | requiredTiers: [${requiredTiers.join(", ")}] | currentTier: ${currentTier?.id ?? "none"} (${currentTier?.name ?? "none"}) | activePoints: ${points} | isUnlocked: ${isUnlocked}`);
+              console.log(`[MemberDashboard] Reward "${reward.title}" | requiredTiers: [${requiredTiers.join(", ")}] | currentTier: ${currentTier?.id ?? "none"} (${currentTier?.name ?? "none"}, index=${currentTierIndex}) | activePoints: ${points} | lowestRequiredTierIndex: ${lowestRequiredTierIndex} | isUnlocked: ${isUnlocked}`);
               return (
                 <MembershipRewardCard
                   key={reward.id}
