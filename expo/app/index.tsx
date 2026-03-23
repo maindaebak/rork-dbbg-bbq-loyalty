@@ -1,6 +1,6 @@
 import { Stack, router, Redirect } from "expo-router";
 import { Image } from "expo-image";
-import { Flame, Star, UserRound } from "lucide-react-native";
+import { Flame, Gift, Star, UserRound } from "lucide-react-native";
 import React, { useCallback, useRef } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -123,6 +123,10 @@ export default function IndexScreen() {
           <View style={styles.featureRow}>
             <UserRound color="#F7C58B" size={18} />
             <Text style={styles.featureText}>Redeem rewards for your favorites</Text>
+          </View>
+          <View style={styles.featureRow}>
+            <Gift color="#F7C58B" size={18} />
+            <Text style={styles.featureText}>Member-Only Perks: Exclusive deals and special offers for rewards members throughout the year</Text>
           </View>
         </Panel>
       </LoyaltyScreen>
