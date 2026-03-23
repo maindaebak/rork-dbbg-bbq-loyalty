@@ -681,6 +681,32 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     [deleteMemberMutation],
   );
 
+  const unclaimMembershipRewardMutation = useMutation({
+    mutationFn: async ({ memberId, rewardId }: { memberId: string; rewardId: string }) => {
+      console.log("[MembersStore] Unclaiming membership reward", rewardId, "for member", memberId);
+      const { error } = await supabase
+        .from("membership_redemptions")
+        .delete()
+        .eq("member_id", memberId)
+        .eq("reward_id", rewardId);
+
+      if (error) {
+        console.error("[MembersStore] Supabase unclaim membership reward error:", error.message);
+        const updated = membershipRedemptions.filter(
+          (r) => !(r.memberId === memberId && r.rewardId === rewardId)
+        );
+        await AsyncStorage.setItem(MEMBERSHIP_REDEMPTIONS_KEY, JSON.stringify(updated));
+        console.log("[MembersStore] Saved unclaim to local fallback");
+      } else {
+        console.log("[MembersStore] Unclaimed membership reward from Supabase");
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["membership-redemptions"] });
+      void queryClient.invalidateQueries({ queryKey: ["members-store"] });
+    },
+  });
+
   const redeemMembershipRewardMutation = useMutation({
     mutationFn: async ({ memberId, rewardId }: { memberId: string; rewardId: string }) => {
       console.log("[MembersStore] Redeeming membership reward", rewardId, "for member", memberId);
@@ -898,6 +924,17 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     [unmarkPerkUsedMutation],
   );
 
+  const unclaimMembershipReward = useCallback(
+    (memberId: string, rewardId: string) => {
+      setMembershipRedemptions((prev) =>
+        prev.filter((r) => !(r.memberId === memberId && r.rewardId === rewardId))
+      );
+      unclaimMembershipRewardMutation.mutate({ memberId, rewardId });
+      console.log("[MembersStore] Unclaimed membership reward", rewardId, "for", memberId);
+    },
+    [unclaimMembershipRewardMutation],
+  );
+
   const hasMemberRedeemedReward = useCallback(
     (memberId: string, rewardId: string): boolean => {
       return membershipRedemptions.some(
@@ -929,6 +966,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       deleteMember,
       membershipRedemptions,
       redeemMembershipReward,
+      unclaimMembershipReward,
       hasMemberRedeemedReward,
       hasMemberRedeemedAnyRewardToday,
       getMemberRedemptions,
@@ -952,6 +990,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       deleteMember,
       membershipRedemptions,
       redeemMembershipReward,
+      unclaimMembershipReward,
       hasMemberRedeemedReward,
       hasMemberRedeemedAnyRewardToday,
       getMemberRedemptions,

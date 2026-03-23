@@ -79,7 +79,7 @@ function getMemberStats(member: StoredMember) {
 
 export default function AdminMemberDetailScreen() {
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
-  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward, hasMemberUsedPerkToday, markPerkUsed, unmarkPerkUsed, getMemberPerkUsagesToday } = useMembersStore();
+  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward, unclaimMembershipReward, hasMemberUsedPerkToday, markPerkUsed, unmarkPerkUsed, getMemberPerkUsagesToday } = useMembersStore();
   const { settings } = useLoyaltyProgram();
 
   const [dollarAmount, setDollarAmount] = useState<string>("");
@@ -409,6 +409,28 @@ export default function AdminMemberDetailScreen() {
       );
     }
   }, [foundMember, hasMemberUsedPerkToday, markPerkUsed, unmarkPerkUsed]);
+
+  const handleUnclaimMembershipReward = useCallback((rewardId: string, rewardTitle: string) => {
+    if (!foundMember) return;
+
+    Alert.alert(
+      "Unclaim reward",
+      `Are you sure you want to unclaim "${rewardTitle}" for ${foundMember.fullName}?\n\nThis will reverse the claim and allow them to claim it again in the future.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unclaim",
+          style: "destructive",
+          onPress: () => {
+            unclaimMembershipReward(foundMember.id, rewardId);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert("Unclaimed", `"${rewardTitle}" has been unclaimed for ${foundMember.fullName}.`);
+            console.log("[MemberDetail] Unclaimed membership reward", rewardTitle, "for member", foundMember.id);
+          },
+        },
+      ],
+    );
+  }, [foundMember, unclaimMembershipReward]);
 
   const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
@@ -838,10 +860,14 @@ export default function AdminMemberDetailScreen() {
                       <Text style={styles.membershipLockedText}>Locked</Text>
                     </View>
                   ) : alreadyClaimed ? (
-                    <View style={styles.membershipClaimedBadge}>
+                    <Pressable
+                      onPress={() => handleUnclaimMembershipReward(reward.id, reward.title)}
+                      style={({ pressed }) => [styles.membershipClaimedBadge, pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] }]}
+                      testID={`detail-membership-unclaim-${reward.id}`}
+                    >
                       <CheckCircle color="#6B7280" size={14} />
                       <Text style={styles.membershipClaimedText}>Claimed</Text>
-                    </View>
+                    </Pressable>
                   ) : dailyLimitReached ? (
                     <View style={styles.membershipDailyLimitBadge}>
                       <Clock color="#F59E0B" size={14} />
