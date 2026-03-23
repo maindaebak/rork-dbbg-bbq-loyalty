@@ -31,6 +31,8 @@ import {
 
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
+import { Lock } from "lucide-react-native";
+import type { MembershipReward } from "@/constants/loyalty-program";
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -307,8 +309,28 @@ export default function AdminMemberDetailScreen() {
     return hasMemberRedeemedAnyRewardToday(foundMember.id);
   }, [foundMember, hasMemberRedeemedAnyRewardToday]);
 
+  const isRewardTierLocked = useCallback((reward: MembershipReward): boolean => {
+    const requiredTiers = reward.requiredTiers ?? [];
+    if (requiredTiers.length === 0) return false;
+    return !currentTier || !requiredTiers.includes(currentTier.id);
+  }, [currentTier]);
+
+  const getRequiredTierNames = useCallback((reward: MembershipReward): string[] => {
+    const requiredTiers = reward.requiredTiers ?? [];
+    return requiredTiers
+      .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
+      .filter(Boolean) as string[];
+  }, [settings.tiers]);
+
   const handleClaimMembershipReward = useCallback((rewardId: string, rewardTitle: string) => {
     if (!foundMember) return;
+
+    const reward = settings.membershipRewards.find((r) => r.id === rewardId);
+    if (reward && isRewardTierLocked(reward)) {
+      const tierNames = getRequiredTierNames(reward);
+      Alert.alert("Tier Locked", `"${rewardTitle}" is only available for ${tierNames.join(" / ")} tier members. ${foundMember.fullName} is currently ${currentTier?.name ?? "unranked"}.`);
+      return;
+    }
 
     if (hasMemberRedeemedReward(foundMember.id, rewardId)) {
       Alert.alert("Already Claimed", `${foundMember.fullName} has already claimed "${rewardTitle}".`);
@@ -342,7 +364,7 @@ export default function AdminMemberDetailScreen() {
         },
       ],
     );
-  }, [foundMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward]);
+  }, [foundMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward, settings.membershipRewards, isRewardTierLocked, getRequiredTierNames, currentTier]);
 
   const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
@@ -678,14 +700,27 @@ export default function AdminMemberDetailScreen() {
             )}
             {settings.membershipRewards.map((reward) => {
               const alreadyClaimed = hasMemberRedeemedReward(foundMember.id, reward.id);
+              const tierLocked = isRewardTierLocked(reward);
+              const requiredTierNames = getRequiredTierNames(reward);
               return (
-                <View key={reward.id} style={[styles.membershipRewardCard, alreadyClaimed && styles.membershipRewardCardClaimed]} testID={`detail-membership-${reward.id}`}>
-                  <View style={[styles.membershipRewardAccent, { backgroundColor: alreadyClaimed ? "#6B7280" : reward.accent }]} />
+                <View key={reward.id} style={[styles.membershipRewardCard, alreadyClaimed && styles.membershipRewardCardClaimed, tierLocked && styles.membershipRewardCardLocked]} testID={`detail-membership-${reward.id}`}>
+                  <View style={[styles.membershipRewardAccent, { backgroundColor: alreadyClaimed ? "#6B7280" : tierLocked ? "#5A4A3F" : reward.accent }]} />
                   <View style={styles.membershipRewardBody}>
-                    <Text style={[styles.membershipRewardTitle, alreadyClaimed && styles.membershipRewardTitleClaimed]}>{reward.title}</Text>
-                    <Text style={styles.membershipRewardSubtitle}>{reward.subtitle}</Text>
+                    <Text style={[styles.membershipRewardTitle, alreadyClaimed && styles.membershipRewardTitleClaimed, tierLocked && styles.membershipRewardTitleLocked]}>{reward.title}</Text>
+                    <Text style={[styles.membershipRewardSubtitle, tierLocked && styles.membershipRewardSubtitleLocked]}>{reward.subtitle}</Text>
+                    {tierLocked && requiredTierNames.length > 0 && (
+                      <View style={styles.tierLockedRow}>
+                        <Lock color="#8E6D56" size={11} />
+                        <Text style={styles.tierLockedText}>{requiredTierNames.join(" / ")} only</Text>
+                      </View>
+                    )}
                   </View>
-                  {alreadyClaimed ? (
+                  {tierLocked ? (
+                    <View style={styles.membershipLockedBadge}>
+                      <Lock color="#8E6D56" size={14} />
+                      <Text style={styles.membershipLockedText}>Locked</Text>
+                    </View>
+                  ) : alreadyClaimed ? (
                     <View style={styles.membershipClaimedBadge}>
                       <CheckCircle color="#6B7280" size={14} />
                       <Text style={styles.membershipClaimedText}>Claimed</Text>
@@ -1558,6 +1593,42 @@ const styles = StyleSheet.create({
   },
   membershipDailyLimitText: {
     color: "#F59E0B",
+    fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  membershipRewardCardLocked: {
+    backgroundColor: "rgba(90, 74, 63, 0.06)",
+    borderColor: "rgba(90, 74, 63, 0.18)",
+    opacity: 0.75,
+  },
+  membershipRewardTitleLocked: {
+    color: "#8E6D56",
+  },
+  membershipRewardSubtitleLocked: {
+    color: "#6B5A4E",
+  },
+  tierLockedRow: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 4,
+    marginTop: 2,
+  },
+  tierLockedText: {
+    color: "#8E6D56",
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  membershipLockedBadge: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(90, 74, 63, 0.15)",
+    borderRadius: 999,
+    flexDirection: "row" as const,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  membershipLockedText: {
+    color: "#8E6D56",
     fontSize: 12,
     fontWeight: "700" as const,
   },
