@@ -111,6 +111,7 @@ export const [LoyaltyProgramProvider, useLoyaltyProgram] = createContextHook(() 
   const settingsQuery = useQuery({
     queryKey: ["loyalty-program-settings"],
     queryFn: fetchSettings,
+    refetchInterval: 15000,
   });
 
   const saveSettingsMutation = useMutation({

@@ -227,6 +227,7 @@ export default function MemberDashboardScreen() {
               const requiredTierNames = requiredTiers
                 .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
                 .filter(Boolean);
+              console.log(`[MemberDashboard] Reward "${reward.title}" | requiredTiers: [${requiredTiers.join(", ")}] | currentTier: ${currentTier?.id ?? "none"} (${currentTier?.name ?? "none"}) | activePoints: ${points} | isUnlocked: ${isUnlocked}`);
               return (
                 <MembershipRewardCard
                   key={reward.id}

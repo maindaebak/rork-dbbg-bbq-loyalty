@@ -181,6 +181,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   const redemptionsQuery = useQuery({
     queryKey: ["membership-redemptions"],
     queryFn: fetchMembershipRedemptions,
+    refetchInterval: 15000,
   });
 
   useEffect(() => {
@@ -192,6 +193,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   const membersQuery = useQuery({
     queryKey: ["members-store"],
     queryFn: fetchMembersFromSupabase,
+    refetchInterval: 15000,
   });
 
   useEffect(() => {
