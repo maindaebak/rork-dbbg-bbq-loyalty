@@ -5,7 +5,7 @@ import { Clock, Flame, Gift, Info, LogOut, Star, User } from "lucide-react-nativ
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, UIManager, View, LayoutAnimation } from "react-native";
 
-import { CollapsiblePanel, LoyaltyScreen, RewardCard } from "@/components/loyalty/ui";
+import { CollapsiblePanel, LoyaltyScreen } from "@/components/loyalty/ui";
 import { useAuth } from "@/providers/auth-provider";
 
 import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
@@ -187,9 +187,6 @@ export default function MemberDashboardScreen() {
             <Gift color="#F7C58B" size={16} />
             <Text style={styles.redeemNoteTextHighlight}>To redeem a reward, show your QR code to staff. They will process the redemption for you.</Text>
           </View>
-          {settings.rewards.map((item) => (
-            <RewardCard item={item} key={item.id} />
-          ))}
           <Pressable
             onPress={() => {
               console.log("Member tapped view all rewards");
