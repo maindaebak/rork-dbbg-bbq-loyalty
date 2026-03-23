@@ -238,6 +238,7 @@ export default function MemberDashboardScreen() {
           perks={settings.memberPerks ?? []}
           currentTierId={currentTier?.id ?? ""}
           tiers={settings.tiers}
+          memberId={member?.id ?? ""}
         />
 
         <CollapsiblePanel
@@ -354,7 +355,8 @@ const PERK_ICONS: Record<string, typeof Zap> = {
   zap: Zap,
 };
 
-function MemberPerksSection({ perks, currentTierId, tiers }: { perks: MemberPerk[]; currentTierId: string; tiers: typeof import("@/constants/loyalty-program").DEFAULT_LOYALTY_PROGRAM_SETTINGS.tiers }) {
+function MemberPerksSection({ perks, currentTierId, tiers, memberId }: { perks: MemberPerk[]; currentTierId: string; tiers: typeof import("@/constants/loyalty-program").DEFAULT_LOYALTY_PROGRAM_SETTINGS.tiers; memberId: string }) {
+  const { hasMemberUsedPerkToday } = useMembersStore();
   const activePerks = useMemo(() => perks.filter(p => p.active), [perks]);
 
   if (activePerks.length === 0) return null;
@@ -363,7 +365,7 @@ function MemberPerksSection({ perks, currentTierId, tiers }: { perks: MemberPerk
     <CollapsiblePanel
       testID="member-perks-panel"
       title="Member-Only Perks"
-      copy="Exclusive deals and special offers just for you"
+      copy="Exclusive deals and special offers for members throughout the year. Perks can be used once per day."
       icon={Zap}
       iconColor="#FBBF24"
     >
@@ -398,11 +400,18 @@ function MemberPerksSection({ perks, currentTierId, tiers }: { perks: MemberPerk
                     <Text style={[styles.perkTitle, !isUnlocked && styles.perkTitleLocked]}>
                       {perk.title}
                     </Text>
-                    {isUnlocked && (
-                      <View style={[styles.perkActiveBadge, { backgroundColor: `${perk.accent}25`, borderColor: `${perk.accent}40` }]}>
-                        <Text style={[styles.perkActiveBadgeText, { color: perk.accent }]}>Active</Text>
-                      </View>
-                    )}
+                    {isUnlocked && (() => {
+                      const usedToday = memberId ? hasMemberUsedPerkToday(memberId, perk.id) : false;
+                      return usedToday ? (
+                        <View style={[styles.perkActiveBadge, { backgroundColor: "rgba(107, 114, 128, 0.15)", borderColor: "rgba(107, 114, 128, 0.3)" }]}>
+                          <Text style={[styles.perkActiveBadgeText, { color: "#9CA3AF" }]}>Used</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.perkActiveBadge, { backgroundColor: `${perk.accent}25`, borderColor: `${perk.accent}40` }]}>
+                          <Text style={[styles.perkActiveBadgeText, { color: perk.accent }]}>Active</Text>
+                        </View>
+                      );
+                    })()}
                   </View>
                   <Text style={[styles.perkDescription, !isUnlocked && styles.perkDescriptionLocked]}>
                     {perk.description}
