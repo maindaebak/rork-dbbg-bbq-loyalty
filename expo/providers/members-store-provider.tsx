@@ -51,6 +51,7 @@ interface DbMember {
   created_at: string;
   auth_id: string | null;
   marketing_opt_in: boolean | null;
+  push_notifications_enabled: boolean | null;
 }
 
 interface DbPointsEntry {
@@ -85,7 +86,7 @@ function dbMemberToStored(member: DbMember, history: DbPointsEntry[]): StoredMem
       note: entry.note ?? "",
     })),
     marketingOptIn: member.marketing_opt_in ?? false,
-    pushNotificationOptIn: true,
+    pushNotificationOptIn: member.push_notifications_enabled ?? true,
   };
 }
 
@@ -543,7 +544,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       updates,
     }: {
       memberId: string;
-      updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear" | "marketingOptIn">>;
+      updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear" | "marketingOptIn" | "pushNotificationOptIn">>;
     }) => {
       const dbUpdates: Record<string, string | boolean | null> = {};
       if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
@@ -551,6 +552,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       if (updates.birthdate !== undefined) dbUpdates.birthdate = updates.birthdate || null;
       if (updates.birthYear !== undefined) dbUpdates.birth_year = updates.birthYear || null;
       if (updates.marketingOptIn !== undefined) dbUpdates.marketing_opt_in = updates.marketingOptIn;
+      if (updates.pushNotificationOptIn !== undefined) dbUpdates.push_notifications_enabled = updates.pushNotificationOptIn;
 
       const { error } = await supabase
         .from("members")
