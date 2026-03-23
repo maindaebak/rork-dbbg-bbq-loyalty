@@ -350,7 +350,7 @@ export default function AdminMemberDetailScreen() {
         {
           text: "Claim",
           onPress: () => {
-            const result = redeemMembershipReward(foundMember.id, rewardId);
+            const result = redeemMembershipReward(foundMember.id, rewardId, rewardTitle);
             if (result === "success") {
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert("Claimed!", `"${rewardTitle}" has been claimed for ${foundMember.fullName}. Visit recorded.`);

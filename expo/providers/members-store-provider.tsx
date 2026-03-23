@@ -749,7 +749,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   );
 
   const redeemMembershipReward = useCallback(
-    (memberId: string, rewardId: string) => {
+    (memberId: string, rewardId: string, rewardTitle?: string) => {
       const already = membershipRedemptions.some(
         (r) => r.memberId === memberId && r.rewardId === rewardId
       );
@@ -771,6 +771,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       setMembershipRedemptions((prev) => [...prev, optimistic]);
       redeemMembershipRewardMutation.mutate({ memberId, rewardId });
 
+      const rewardLabel = rewardTitle ? `Membership reward claimed: ${rewardTitle}` : `Membership reward claimed`;
       const visitEntry: PointsEntry = {
         id: `pts-membership-${Date.now()}`,
         type: "earned",
@@ -779,7 +780,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
         addedBy: "system",
         addedAt: new Date().toISOString(),
         expiresAt: "",
-        note: `Membership reward visit`,
+        note: rewardLabel,
       };
       setMembers((prev) =>
         prev.map((m) =>
@@ -797,7 +798,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
             amount: 0,
             dollar_amount: 0,
             added_by: "system",
-            note: `Membership reward visit`,
+            note: rewardLabel,
             expires_at: null,
           });
           console.log("[MembersStore] Recorded membership reward visit for member", memberId);
