@@ -1,12 +1,58 @@
 import { Stack, router, Redirect } from "expo-router";
 import { Image } from "expo-image";
 import { Flame, Gift, Star, UserRound } from "lucide-react-native";
-import React, { useCallback, useRef } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Animated, LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View } from "react-native";
+import { ChevronDown } from "lucide-react-native";
 
 import { ActionButton, LoyaltyScreen, Panel, SectionTitle } from "@/components/loyalty/ui";
 import { useAdminAuth } from "@/providers/admin-auth-provider";
 import { useAuth } from "@/providers/auth-provider";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+function CollapsiblePerk({ icon, title, description, accent }: { icon: React.ReactNode; title: string; description: string; accent: string }) {
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  const toggle = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded((prev) => {
+      Animated.timing(spinValue, {
+        toValue: prev ? 0 : 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+      return !prev;
+    });
+  }, [spinValue]);
+
+  const rotate = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+
+  return (
+    <Pressable onPress={toggle} style={styles.perkItem}>
+      <View style={styles.perkHeader}>
+        <View style={[styles.perkIconWrap, { backgroundColor: accent + "18" }]}>
+          {icon}
+        </View>
+        <Text style={styles.perkTitle}>{title}</Text>
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <ChevronDown color="#D7BDA9" size={16} />
+        </Animated.View>
+      </View>
+      {expanded && (
+        <View style={styles.perkBody}>
+          <Text style={styles.perkDescription}>{description}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 export default function IndexScreen() {
   const { isReady, isLoggedIn } = useAuth();
@@ -109,24 +155,34 @@ export default function IndexScreen() {
 
         <Panel testID="welcome-panel-features">
           <SectionTitle
-            copy="Earn points, climb tiers, and enjoy exclusive Korean BBQ rewards."
+            copy="Exclusive deals and special offers for members throughout the year"
             title="Member perks"
           />
-          <View style={styles.featureRow}>
-            <Flame color="#F7C58B" size={18} />
-            <Text style={styles.featureText}>Earn points on every dollar spent</Text>
-          </View>
-          <View style={styles.featureRow}>
-            <Star color="#F7C58B" size={18} />
-            <Text style={styles.featureText}>Unlock membership tiers</Text>
-          </View>
-          <View style={styles.featureRow}>
-            <UserRound color="#F7C58B" size={18} />
-            <Text style={styles.featureText}>Redeem rewards for your favorites</Text>
-          </View>
-          <View style={styles.featureRow}>
-            <Gift color="#F7C58B" size={18} />
-            <Text style={styles.featureText}>Exclusive deals and special offers for members throughout the year</Text>
+          <View style={styles.perksContainer}>
+            <CollapsiblePerk
+              icon={<Flame color="#F59E0B" size={16} />}
+              title="Earn Points on Every Dollar"
+              description="Every dollar you spend earns you loyalty points. The more you dine, the more you earn — stack them up and redeem for delicious rewards."
+              accent="#F59E0B"
+            />
+            <CollapsiblePerk
+              icon={<Star color="#FB7185" size={16} />}
+              title="Unlock Membership Tiers"
+              description="Rise through Ember, Sear, and Dae Bak VIP tiers. Each level unlocks bonus points and exclusive perks that make every visit even more rewarding."
+              accent="#FB7185"
+            />
+            <CollapsiblePerk
+              icon={<UserRound color="#60A5FA" size={16} />}
+              title="Redeem Rewards for Your Favorites"
+              description="Cash in your points for menu favorites like banchan upgrades, soju flights, and our signature galbi plate. New rewards added regularly!"
+              accent="#60A5FA"
+            />
+            <CollapsiblePerk
+              icon={<Gift color="#F97316" size={16} />}
+              title="Member-Only Exclusive Deals"
+              description="Enjoy special offers reserved just for members — from happy hour discounts and birthday treats to early access to seasonal menus throughout the year."
+              accent="#F97316"
+            />
           </View>
         </Panel>
       </LoyaltyScreen>
@@ -178,15 +234,47 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
-  featureRow: {
+  perksContainer: {
+    gap: 8,
+  },
+  perkItem: {
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  perkHeader: {
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  featureText: {
+  perkIconWrap: {
+    alignItems: "center",
+    borderRadius: 8,
+    height: 30,
+    justifyContent: "center",
+    width: 30,
+  },
+  perkTitle: {
     color: "#F8E7D0",
+    flex: 1,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700" as const,
+  },
+  perkBody: {
+    borderTopColor: "rgba(247, 197, 139, 0.08)",
+    borderTopWidth: 1,
+    paddingBottom: 14,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+  },
+  perkDescription: {
+    color: "#D7BDA9",
+    fontSize: 13,
+    lineHeight: 20,
   },
   loader: {
     alignItems: "center",
