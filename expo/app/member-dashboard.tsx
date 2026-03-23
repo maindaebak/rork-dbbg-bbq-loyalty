@@ -11,8 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, CheckCircle, Clock as ClockIcon } from "lucide-react-native";
-import type { MembershipReward } from "@/constants/loyalty-program";
+import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown } from "lucide-react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -25,7 +24,7 @@ function formatPoints(value: number): string {
 export default function MemberDashboardScreen() {
   const { settings } = useLoyaltyProgram();
   const { member, logout } = useAuth();
-  const { getActivePoints, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday } = useMembersStore();
+  const { getActivePoints } = useMembersStore();
 
   const { findMemberByPhone } = useMembersStore();
   const storedMember = member?.phone ? findMemberByPhone(member.phone) : undefined;
@@ -216,50 +215,22 @@ export default function MemberDashboardScreen() {
         >
           <View style={styles.membershipNote}>
             <Crown color="#34D399" size={16} />
-            <Text style={styles.membershipNoteText}>These rewards are free for members. Each can be claimed once by staff when you visit (limit one per day). Show your QR code!</Text>
+            <Text style={styles.membershipNoteText}>Exclusive one-time rewards just for being a member. No points needed! Show your QR code to staff to claim.</Text>
           </View>
-          {member?.id && hasMemberRedeemedAnyRewardToday(member.id) && (
-            <View style={styles.dailyLimitNote}>
-              <ClockIcon color="#F59E0B" size={14} />
-              <Text style={styles.dailyLimitNoteText}>You've already claimed a membership reward today. Come back tomorrow for more!</Text>
+          <Pressable
+            onPress={() => {
+              console.log("Member tapped view membership rewards");
+              router.push("/membership-rewards");
+            }}
+            style={({ pressed }) => [styles.viewMembershipRewardsButton, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+            testID="view-membership-rewards-button"
+          >
+            <View style={styles.viewMembershipRewardsContent}>
+              <Crown color="#1A120E" size={18} />
+              <Text style={styles.viewMembershipRewardsText}>View Membership Rewards</Text>
             </View>
-          )}
-          {(settings.membershipRewards ?? []).length > 0 ? (
-            (settings.membershipRewards ?? []).map((reward) => {
-              const requiredTiers = reward.requiredTiers ?? [];
-              const currentTierIndex = sortedTiers.findIndex(t => t.id === currentTier?.id);
-              const lowestRequiredTierIndex = requiredTiers.length > 0
-                ? Math.min(...requiredTiers.map(tid => {
-                    const idx = sortedTiers.findIndex(t => t.id === tid);
-                    return idx >= 0 ? idx : Infinity;
-                  }))
-                : -1;
-              const isUnlocked = requiredTiers.length === 0 || (currentTierIndex >= 0 && currentTierIndex >= lowestRequiredTierIndex);
-              const requiredTierNames = requiredTiers
-                .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
-                .filter(Boolean);
-              const lowestRequiredTier = requiredTiers.length > 0
-                ? sortedTiers.find((t) => requiredTiers.includes(t.id))
-                : null;
-              console.log(`[MemberDashboard] Reward "${reward.title}" | requiredTiers: [${requiredTiers.join(", ")}] | currentTier: ${currentTier?.id ?? "none"} (${currentTier?.name ?? "none"}, index=${currentTierIndex}) | activePoints: ${points} | lowestRequiredTierIndex: ${lowestRequiredTierIndex} | isUnlocked: ${isUnlocked}`);
-              return (
-                <MembershipRewardCard
-                  key={reward.id}
-                  reward={reward}
-                  redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
-                  dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
-                  isLocked={!isUnlocked}
-                  requiredTierNames={requiredTierNames as string[]}
-                  lowestRequiredTierName={lowestRequiredTier?.name}
-                  lowestRequiredTierAccent={lowestRequiredTier?.accent}
-                />
-              );
-            })
-          ) : (
-            <View style={styles.membershipEmpty}>
-              <Text style={styles.membershipEmptyText}>No membership rewards available yet.</Text>
-            </View>
-          )}
+            <ChevronRight color="#1A120E" size={18} />
+          </Pressable>
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -452,68 +423,6 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
               </View>
             );
           })}
-        </View>
-      )}
-    </View>
-  );
-}
-
-function MembershipRewardCard({ reward, redeemed, dailyLimitReached, isLocked, requiredTierNames, lowestRequiredTierName, lowestRequiredTierAccent }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean; isLocked?: boolean; requiredTierNames?: string[]; lowestRequiredTierName?: string; lowestRequiredTierAccent?: string }) {
-  if (isLocked) {
-    return (
-      <View style={[styles.membershipCard, styles.membershipCardLocked]} testID={`membership-reward-${reward.id}-locked`}>
-        <View style={[styles.membershipAccent, { backgroundColor: "#5A4A3F" }]} />
-        <View style={styles.membershipBody}>
-          <Text style={styles.membershipTitleLocked}>{reward.title}</Text>
-          <Text style={styles.membershipSubtitleLocked}>{reward.subtitle}</Text>
-          <View style={styles.lockedTierRow}>
-            <Lock color="#8E6D56" size={11} />
-            <Text style={styles.lockedTierText}>
-              {lowestRequiredTierName
-                ? `Reach ${lowestRequiredTierName} to unlock`
-                : requiredTierNames && requiredTierNames.length > 0
-                  ? `${requiredTierNames.join(" / ")} only`
-                  : "Restricted"}
-            </Text>
-          </View>
-          {lowestRequiredTierAccent && (
-            <View style={[styles.lockedTierHintBadge, { backgroundColor: `${lowestRequiredTierAccent}15`, borderColor: `${lowestRequiredTierAccent}30` }]}>
-              <Flame color={lowestRequiredTierAccent} size={11} />
-              <Text style={[styles.lockedTierHintText, { color: lowestRequiredTierAccent }]}>
-                {requiredTierNames && requiredTierNames.length > 0 ? requiredTierNames.join(" / ") : lowestRequiredTierName}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.membershipLockedBadge}>
-          <Lock color="#8E6D56" size={14} />
-          <Text style={styles.membershipLockedText}>Locked</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.membershipCard, redeemed && styles.membershipCardRedeemed]} testID={`membership-reward-${reward.id}`}>
-      <View style={[styles.membershipAccent, { backgroundColor: redeemed ? "#6B7280" : reward.accent }]} />
-      <View style={styles.membershipBody}>
-        <Text style={[styles.membershipTitle, redeemed && styles.membershipTitleRedeemed]}>{reward.title}</Text>
-        <Text style={styles.membershipSubtitle}>{reward.subtitle}</Text>
-      </View>
-      {redeemed ? (
-        <View style={styles.membershipRedeemedBadge}>
-          <CheckCircle color="#6B7280" size={16} />
-          <Text style={styles.membershipRedeemedText}>Claimed</Text>
-        </View>
-      ) : dailyLimitReached ? (
-        <View style={styles.membershipDailyLimitBadge}>
-          <ClockIcon color="#F59E0B" size={14} />
-          <Text style={styles.membershipDailyLimitText}>Tomorrow</Text>
-        </View>
-      ) : (
-        <View style={styles.membershipAvailableBadge}>
-          <Crown color="#34D399" size={14} />
-          <Text style={styles.membershipAvailableText}>Available</Text>
         </View>
       )}
     </View>
@@ -992,118 +901,7 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
     lineHeight: 18,
   },
-  membershipCard: {
-    alignItems: "center",
-    backgroundColor: "rgba(52, 211, 153, 0.04)",
-    borderColor: "rgba(52, 211, 153, 0.14)",
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 14,
-    padding: 14,
-  },
-  membershipCardRedeemed: {
-    backgroundColor: "rgba(107, 114, 128, 0.04)",
-    borderColor: "rgba(107, 114, 128, 0.14)",
-    opacity: 0.7,
-  },
-  membershipAccent: {
-    borderRadius: 999,
-    height: 12,
-    width: 12,
-  },
-  membershipBody: {
-    flex: 1,
-    gap: 4,
-  },
-  membershipTitle: {
-    color: "#FFF7ED",
-    fontSize: 15,
-    fontWeight: "800" as const,
-  },
-  membershipTitleRedeemed: {
-    color: "#9CA3AF",
-  },
-  membershipSubtitle: {
-    color: "#C9AD99",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  membershipRedeemedBadge: {
-    alignItems: "center",
-    backgroundColor: "rgba(107, 114, 128, 0.12)",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  membershipRedeemedText: {
-    color: "#9CA3AF",
-    fontSize: 12,
-    fontWeight: "700" as const,
-  },
-  membershipAvailableBadge: {
-    alignItems: "center",
-    backgroundColor: "rgba(52, 211, 153, 0.12)",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  membershipAvailableText: {
-    color: "#34D399",
-    fontSize: 12,
-    fontWeight: "700" as const,
-  },
-  membershipEmpty: {
-    alignItems: "center",
-    backgroundColor: "rgba(52, 211, 153, 0.04)",
-    borderColor: "rgba(52, 211, 153, 0.1)",
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-  },
-  membershipEmptyText: {
-    color: "#A7C4B5",
-    fontSize: 13,
-    fontWeight: "600" as const,
-    textAlign: "center" as const,
-  },
-  dailyLimitNote: {
-    alignItems: "center",
-    backgroundColor: "rgba(245, 158, 11, 0.06)",
-    borderColor: "rgba(245, 158, 11, 0.18)",
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  dailyLimitNoteText: {
-    color: "#FCD34D",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600" as const,
-    lineHeight: 18,
-  },
-  membershipDailyLimitBadge: {
-    alignItems: "center",
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  membershipDailyLimitText: {
-    color: "#F59E0B",
-    fontSize: 12,
-    fontWeight: "700" as const,
-  },
+
   viewRewardsButton: {
     alignItems: "center" as const,
     backgroundColor: "#F7C58B",
@@ -1122,59 +920,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800" as const,
   },
-  membershipCardLocked: {
-    backgroundColor: "rgba(90, 74, 63, 0.06)",
-    borderColor: "rgba(90, 74, 63, 0.18)",
-    opacity: 0.75,
+  viewMembershipRewardsButton: {
+    alignItems: "center" as const,
+    backgroundColor: "#34D399",
+    borderRadius: 16,
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    padding: 14,
   },
-  membershipTitleLocked: {
-    color: "#8E6D56",
+  viewMembershipRewardsContent: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 10,
+  },
+  viewMembershipRewardsText: {
+    color: "#1A120E",
     fontSize: 15,
     fontWeight: "800" as const,
-  },
-  membershipSubtitleLocked: {
-    color: "#6B5A4E",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  lockedTierRow: {
-    alignItems: "center" as const,
-    flexDirection: "row" as const,
-    gap: 4,
-    marginTop: 2,
-  },
-  lockedTierText: {
-    color: "#8E6D56",
-    fontSize: 11,
-    fontWeight: "700" as const,
-  },
-  membershipLockedBadge: {
-    alignItems: "center" as const,
-    backgroundColor: "rgba(90, 74, 63, 0.15)",
-    borderRadius: 999,
-    flexDirection: "row" as const,
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  membershipLockedText: {
-    color: "#8E6D56",
-    fontSize: 12,
-    fontWeight: "700" as const,
-  },
-  lockedTierHintBadge: {
-    alignItems: "center" as const,
-    alignSelf: "flex-start" as const,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: "row" as const,
-    gap: 4,
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  lockedTierHintText: {
-    fontSize: 10,
-    fontWeight: "700" as const,
   },
 });
