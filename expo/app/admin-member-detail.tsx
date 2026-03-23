@@ -384,7 +384,7 @@ export default function AdminMemberDetailScreen() {
           {
             text: "Unmark",
             onPress: () => {
-              unmarkPerkUsed(foundMember.id, perk.id);
+              unmarkPerkUsed(foundMember.id, perk.id, perk.title);
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
               console.log("[MemberDetail] Unmarked perk", perk.id, "for member", foundMember.id);
             },
@@ -400,7 +400,7 @@ export default function AdminMemberDetailScreen() {
           {
             text: "Confirm",
             onPress: () => {
-              markPerkUsed(foundMember.id, perk.id);
+              markPerkUsed(foundMember.id, perk.id, perk.title);
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               console.log("[MemberDetail] Marked perk", perk.id, "as used for member", foundMember.id);
             },
@@ -422,7 +422,7 @@ export default function AdminMemberDetailScreen() {
           text: "Unclaim",
           style: "destructive",
           onPress: () => {
-            unclaimMembershipReward(foundMember.id, rewardId);
+            unclaimMembershipReward(foundMember.id, rewardId, rewardTitle);
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             Alert.alert("Unclaimed", `"${rewardTitle}" has been unclaimed for ${foundMember.fullName}.`);
             console.log("[MemberDetail] Unclaimed membership reward", rewardTitle, "for member", foundMember.id);

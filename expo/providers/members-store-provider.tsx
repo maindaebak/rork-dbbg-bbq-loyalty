@@ -896,7 +896,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   );
 
   const markPerkUsed = useCallback(
-    (memberId: string, perkId: string) => {
+    (memberId: string, perkId: string, perkTitle?: string) => {
       const already = hasMemberUsedPerkToday(memberId, perkId);
       if (already) {
         console.log("[MembersStore] Perk already used today");
@@ -909,28 +909,142 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       };
       setPerkUsages((prev) => [...prev, optimistic]);
       markPerkUsedMutation.mutate({ memberId, perkId });
+
+      const perkLabel = perkTitle ? `Membership perk used: ${perkTitle}` : `Membership perk used`;
+      const perkEntry: PointsEntry = {
+        id: `pts-perk-${Date.now()}`,
+        type: "earned",
+        amount: 0,
+        dollarAmount: 0,
+        addedBy: "system",
+        addedAt: new Date().toISOString(),
+        expiresAt: "",
+        note: perkLabel,
+      };
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === memberId
+            ? { ...m, pointsHistory: [perkEntry, ...m.pointsHistory] }
+            : m
+        )
+      );
+
+      const recordPerkUsage = async () => {
+        try {
+          await supabase.from("points_history").insert({
+            member_id: memberId,
+            type: "earned",
+            amount: 0,
+            dollar_amount: 0,
+            added_by: "system",
+            note: perkLabel,
+            expires_at: null,
+          });
+          console.log("[MembersStore] Recorded perk usage for member", memberId);
+        } catch (err) {
+          console.error("[MembersStore] Failed to record perk usage:", err);
+        }
+      };
+      void recordPerkUsage();
+
       console.log("[MembersStore] Marked perk", perkId, "as used for", memberId);
     },
     [hasMemberUsedPerkToday, markPerkUsedMutation],
   );
 
   const unmarkPerkUsed = useCallback(
-    (memberId: string, perkId: string) => {
+    (memberId: string, perkId: string, perkTitle?: string) => {
       setPerkUsages((prev) =>
         prev.filter((p) => !(p.memberId === memberId && p.perkId === perkId))
       );
       unmarkPerkUsedMutation.mutate({ memberId, perkId });
+
+      const unmarkLabel = perkTitle ? `Membership perk unclaimed: ${perkTitle}` : `Membership perk unclaimed`;
+      const unmarkEntry: PointsEntry = {
+        id: `pts-perk-unclaim-${Date.now()}`,
+        type: "redeemed",
+        amount: 0,
+        dollarAmount: 0,
+        addedBy: "system",
+        addedAt: new Date().toISOString(),
+        expiresAt: "",
+        note: unmarkLabel,
+      };
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === memberId
+            ? { ...m, pointsHistory: [unmarkEntry, ...m.pointsHistory] }
+            : m
+        )
+      );
+
+      const recordPerkUnclaim = async () => {
+        try {
+          await supabase.from("points_history").insert({
+            member_id: memberId,
+            type: "redeemed",
+            amount: 0,
+            dollar_amount: 0,
+            added_by: "system",
+            note: unmarkLabel,
+            expires_at: null,
+          });
+          console.log("[MembersStore] Recorded perk unclaim for member", memberId);
+        } catch (err) {
+          console.error("[MembersStore] Failed to record perk unclaim:", err);
+        }
+      };
+      void recordPerkUnclaim();
+
       console.log("[MembersStore] Unmarked perk", perkId, "for", memberId);
     },
     [unmarkPerkUsedMutation],
   );
 
   const unclaimMembershipReward = useCallback(
-    (memberId: string, rewardId: string) => {
+    (memberId: string, rewardId: string, rewardTitle?: string) => {
       setMembershipRedemptions((prev) =>
         prev.filter((r) => !(r.memberId === memberId && r.rewardId === rewardId))
       );
       unclaimMembershipRewardMutation.mutate({ memberId, rewardId });
+
+      const unclaimLabel = rewardTitle ? `Membership reward unclaimed: ${rewardTitle}` : `Membership reward unclaimed`;
+      const unclaimEntry: PointsEntry = {
+        id: `pts-unclaim-${Date.now()}`,
+        type: "redeemed",
+        amount: 0,
+        dollarAmount: 0,
+        addedBy: "system",
+        addedAt: new Date().toISOString(),
+        expiresAt: "",
+        note: unclaimLabel,
+      };
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === memberId
+            ? { ...m, pointsHistory: [unclaimEntry, ...m.pointsHistory] }
+            : m
+        )
+      );
+
+      const recordUnclaim = async () => {
+        try {
+          await supabase.from("points_history").insert({
+            member_id: memberId,
+            type: "redeemed",
+            amount: 0,
+            dollar_amount: 0,
+            added_by: "system",
+            note: unclaimLabel,
+            expires_at: null,
+          });
+          console.log("[MembersStore] Recorded membership reward unclaim for member", memberId);
+        } catch (err) {
+          console.error("[MembersStore] Failed to record membership unclaim:", err);
+        }
+      };
+      void recordUnclaim();
+
       console.log("[MembersStore] Unclaimed membership reward", rewardId, "for", memberId);
     },
     [unclaimMembershipRewardMutation],
