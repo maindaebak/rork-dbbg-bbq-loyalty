@@ -248,16 +248,19 @@ export default function MemberDashboardScreen() {
               console.log("Member tapped points history");
               router.push("/points-history");
             }}
-            style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
+            style={({ pressed }) => [styles.pointsHistoryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
             testID="member-points-history-button"
           >
-            <View style={styles.actionIconWrap}>
-              <Clock color="#F7C58B" size={18} />
+            <View style={styles.pointsHistoryLeft}>
+              <View style={styles.pointsHistoryIconWrap}>
+                <Clock color="#1A120E" size={20} />
+              </View>
+              <View style={styles.pointsHistoryTextWrap}>
+                <Text style={styles.pointsHistoryTitle}>Points History & Expiry</Text>
+                <Text style={styles.pointsHistorySubtitle}>Track earned, used, and expiring points</Text>
+              </View>
             </View>
-            <View style={styles.actionTextWrap}>
-              <Text style={styles.actionTitle}>Points history & expiry</Text>
-              <Text style={styles.actionSubtitle}>Track earned, used, and expiring points</Text>
-            </View>
+            <ChevronRight color="#1A120E" size={18} />
           </Pressable>
         </CollapsiblePanel>
 
@@ -937,5 +940,41 @@ const styles = StyleSheet.create({
     color: "#1A120E",
     fontSize: 15,
     fontWeight: "800" as const,
+  },
+  pointsHistoryButton: {
+    alignItems: "center" as const,
+    backgroundColor: "#F7C58B",
+    borderRadius: 16,
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    padding: 14,
+  },
+  pointsHistoryLeft: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    flex: 1,
+    gap: 12,
+  },
+  pointsHistoryIconWrap: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(26, 18, 14, 0.1)",
+    borderRadius: 12,
+    height: 42,
+    justifyContent: "center" as const,
+    width: 42,
+  },
+  pointsHistoryTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  pointsHistoryTitle: {
+    color: "#1A120E",
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  pointsHistorySubtitle: {
+    color: "rgba(26, 18, 14, 0.55)",
+    fontSize: 12,
+    fontWeight: "600" as const,
   },
 });
