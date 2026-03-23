@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
-import { Check, Plus, Save, Sparkles, Trash2 } from "lucide-react-native";
+import { ArrowDown, ArrowUp, Check, Plus, Save, Sparkles, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
@@ -76,6 +76,19 @@ export default function SettingsMemberPerksScreen() {
     );
   }, []);
 
+  const moveMemberPerk = useCallback((index: number, direction: "up" | "down") => {
+    setMemberPerks((prev) => {
+      const newArr = [...prev];
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newArr.length) return prev;
+      const temp = newArr[targetIndex];
+      newArr[targetIndex] = newArr[index];
+      newArr[index] = temp;
+      return newArr;
+    });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
   return (
     <>
       <Stack.Screen options={{ title: "Member Perks", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
@@ -92,6 +105,14 @@ export default function SettingsMemberPerksScreen() {
               <View style={styles.editCardHeader}>
                 <Sparkles color="#FBBF24" size={14} />
                 <Text style={styles.editCardIndex}>Perk {index + 1}</Text>
+                <View style={styles.reorderBtnGroup}>
+                  <Pressable onPress={() => moveMemberPerk(index, "up")} style={[styles.reorderBtn, index === 0 && styles.reorderBtnDisabled]} disabled={index === 0} testID={`settings-move-up-perk-${index}`}>
+                    <ArrowUp color={index === 0 ? "#5A4A3F" : "#FBBF24"} size={14} />
+                  </Pressable>
+                  <Pressable onPress={() => moveMemberPerk(index, "down")} style={[styles.reorderBtn, index === memberPerks.length - 1 && styles.reorderBtnDisabled]} disabled={index === memberPerks.length - 1} testID={`settings-move-down-perk-${index}`}>
+                    <ArrowDown color={index === memberPerks.length - 1 ? "#5A4A3F" : "#FBBF24"} size={14} />
+                  </Pressable>
+                </View>
                 <Pressable onPress={() => removeMemberPerk(index)} style={styles.removeBtn} testID={`settings-remove-perk-${index}`}>
                   <Trash2 color="#EF4444" size={14} />
                 </Pressable>
@@ -187,6 +208,16 @@ const styles = StyleSheet.create({
   },
   editCardHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   editCardIndex: { color: "#C8AA94", flex: 1, fontSize: 12, fontWeight: "700" as const, textTransform: "uppercase" as const },
+  reorderBtnGroup: { alignItems: "center", flexDirection: "row" as const, gap: 4 },
+  reorderBtn: {
+    alignItems: "center",
+    backgroundColor: "rgba(251, 191, 36, 0.1)",
+    borderRadius: 8,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  reorderBtnDisabled: { opacity: 0.4 },
   perkIconEmoji: { fontSize: 16 },
   perkIconGrid: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 8 },
   perkIconLabel: { color: "#F8E7D0", fontSize: 13, fontWeight: "700" as const },
