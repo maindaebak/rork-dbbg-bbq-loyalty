@@ -60,6 +60,9 @@ Dae Bak Bon Ga is not responsible for any technical issues that may affect point
 10. MARKETING COMMUNICATIONS
 By signing up for the Dae Bak Bon Ga Loyalty Program, you agree to receive promotional text messages including special deals, birthday rewards, and points expiration reminders. You may opt out of marketing messages at any time through your profile settings in the app. Opting out of marketing messages will not affect your membership status or earned rewards.
 
+11. PUSH NOTIFICATIONS
+Upon signing up, your device will be automatically registered to receive push notifications from Dae Bak Bon Ga. Push notifications may include promotional offers, loyalty program updates, tier status changes, points reminders, and other marketing communications. You may opt out of push notifications at any time through the Member Options section in the app. Opting out of push notifications will not affect your membership status, earned points, or rewards. Dae Bak Bon Ga reserves the right to send essential account-related notifications (e.g., security alerts) regardless of your push notification preferences.
+
 By signing up, you acknowledge that you have read, understood, and agree to these terms and conditions.`;
 
 const DEFAULT_PRIVACY_POLICY = `Privacy Policy
@@ -96,19 +99,34 @@ Opt-Out: You can opt-out of marketing texts at any time by updating your profile
 
 Costs: Standard message and data rates may apply.
 
-4. Third-Party Sharing
+4. Push Notifications
+Upon registration, your device is automatically enrolled to receive push notifications. These notifications may include:
+
+Promotional offers and special deals.
+
+Loyalty program updates (points earned, tier changes, reward availability).
+
+Marketing campaigns and recurring promotional messages sent by Dae Bak Bon Ga.
+
+Opt-Out: You can disable push notifications at any time through the Member Options section within the app. Disabling push notifications will not affect your loyalty membership, points balance, or ability to redeem rewards.
+
+Device Tokens: We collect and store your device's push notification token solely for the purpose of delivering notifications. This token is not shared with third parties for marketing purposes.
+
+5. Third-Party Sharing
 We do not sell or rent your personal information. We only share data with trusted service providers necessary to run the app, such as:
 
 Supabase: For secure database storage.
 
 Twilio: For delivering SMS notifications.
 
+Expo Push Notifications: For delivering push notifications to your device.
+
 Google AdSense: To show relevant advertisements (if applicable).
 
-5. Data Security
+6. Data Security
 We implement industry-standard security measures (via Supabase) to protect your data. However, no method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.
 
-6. Your Rights
+7. Your Rights
 You have the right to:
 
 Access the personal data we hold about you.
@@ -117,7 +135,9 @@ Request the correction or deletion of your data.
 
 Withdraw consent for marketing communications at any time.
 
-7. Contact Us
+Opt out of push notifications and SMS marketing independently.
+
+8. Contact Us
 If you have any questions about this Privacy Policy, please contact us at:
 Dae Bak Bon Ga
 main@dae-bak.com`;
