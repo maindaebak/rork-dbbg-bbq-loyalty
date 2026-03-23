@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
-import { Gift, Plus, Save, Trash2 } from "lucide-react-native";
+import { ArrowDown, ArrowUp, Gift, Plus, Save, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -54,6 +54,19 @@ export default function SettingsRewardsScreen() {
     setRewards((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const moveReward = useCallback((index: number, direction: "up" | "down") => {
+    setRewards((prev) => {
+      const newArr = [...prev];
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newArr.length) return prev;
+      const temp = newArr[targetIndex];
+      newArr[targetIndex] = newArr[index];
+      newArr[index] = temp;
+      return newArr;
+    });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
   return (
     <>
       <Stack.Screen options={{ title: "Rewards", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
@@ -70,6 +83,14 @@ export default function SettingsRewardsScreen() {
               <View style={styles.editCardHeader}>
                 <Gift color="#F7C58B" size={14} />
                 <Text style={styles.editCardIndex}>Reward {index + 1}</Text>
+                <View style={styles.reorderBtnGroup}>
+                  <Pressable onPress={() => moveReward(index, "up")} style={[styles.reorderBtn, index === 0 && styles.reorderBtnDisabled]} disabled={index === 0} testID={`settings-move-up-reward-${index}`}>
+                    <ArrowUp color={index === 0 ? "#5A4A3F" : "#F7C58B"} size={14} />
+                  </Pressable>
+                  <Pressable onPress={() => moveReward(index, "down")} style={[styles.reorderBtn, index === rewards.length - 1 && styles.reorderBtnDisabled]} disabled={index === rewards.length - 1} testID={`settings-move-down-reward-${index}`}>
+                    <ArrowDown color={index === rewards.length - 1 ? "#5A4A3F" : "#F7C58B"} size={14} />
+                  </Pressable>
+                </View>
                 {rewards.length > 1 && (
                   <Pressable onPress={() => removeReward(index)} style={styles.removeBtn} testID={`settings-remove-reward-${index}`}>
                     <Trash2 color="#EF4444" size={14} />
@@ -119,6 +140,16 @@ const styles = StyleSheet.create({
   editCardHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   editCardIndex: { color: "#C8AA94", flex: 1, fontSize: 12, fontWeight: "700" as const, textTransform: "uppercase" as const },
   pressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
+  reorderBtnGroup: { alignItems: "center", flexDirection: "row" as const, gap: 4 },
+  reorderBtn: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.1)",
+    borderRadius: 8,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  reorderBtnDisabled: { opacity: 0.4 },
   removeBtn: {
     alignItems: "center",
     backgroundColor: "rgba(239, 68, 68, 0.1)",
