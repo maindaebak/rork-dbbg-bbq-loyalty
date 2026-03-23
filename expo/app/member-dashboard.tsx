@@ -11,7 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle, Clock as ClockIcon } from "lucide-react-native";
+import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, CheckCircle, Clock as ClockIcon } from "lucide-react-native";
 import type { MembershipReward } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -190,6 +190,20 @@ export default function MemberDashboardScreen() {
           {settings.rewards.map((item) => (
             <RewardCard item={item} key={item.id} />
           ))}
+          <Pressable
+            onPress={() => {
+              console.log("Member tapped view all rewards");
+              router.push("/rewards");
+            }}
+            style={({ pressed }) => [styles.viewRewardsButton, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+            testID="view-rewards-button"
+          >
+            <View style={styles.viewRewardsContent}>
+              <Gift color="#1A120E" size={18} />
+              <Text style={styles.viewRewardsText}>View Redeemable Rewards</Text>
+            </View>
+            <ChevronRight color="#1A120E" size={18} />
+          </Pressable>
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -1039,5 +1053,23 @@ const styles = StyleSheet.create({
     color: "#F59E0B",
     fontSize: 12,
     fontWeight: "700" as const,
+  },
+  viewRewardsButton: {
+    alignItems: "center" as const,
+    backgroundColor: "#F7C58B",
+    borderRadius: 16,
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    padding: 14,
+  },
+  viewRewardsContent: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 10,
+  },
+  viewRewardsText: {
+    color: "#1A120E",
+    fontSize: 15,
+    fontWeight: "800" as const,
   },
 });
