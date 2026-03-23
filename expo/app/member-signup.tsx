@@ -13,6 +13,7 @@ import {
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
 import { signUpWithPhone, verifyPhoneOtp } from "@/lib/api";
+import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -161,11 +162,27 @@ export default function MemberSignupScreen() {
         birthYear: form.birthYear.trim(),
         createdAt: new Date().toISOString(),
         marketingOptIn: form.marketingOptIn,
+        pushNotificationOptIn: true,
       };
 
       console.log("[Signup] Creating member:", member.fullName);
       registerMember(member);
       login(member);
+
+      const setupPush = async () => {
+        try {
+          console.log("[Signup] Auto-registering for push notifications...");
+          const token = await registerForPushNotifications();
+          if (token) {
+            console.log("[Signup] Push token obtained, saving...");
+            await savePushToken(member.id, token);
+          }
+        } catch (err) {
+          console.error("[Signup] Push registration error (non-blocking):", err);
+        }
+      };
+      void setupPush();
+
       router.replace("/member-dashboard");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Please try again.";

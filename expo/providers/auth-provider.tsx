@@ -15,6 +15,7 @@ export interface MemberProfile {
   birthYear: string;
   createdAt: string;
   marketingOptIn: boolean;
+  pushNotificationOptIn: boolean;
 }
 
 interface AuthState {

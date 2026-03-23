@@ -22,6 +22,7 @@ import {
   SectionTitle,
 } from "@/components/loyalty/ui";
 import { sendSmsCode, verifySmsCode } from "@/lib/api";
+import { registerForPushNotifications, savePushToken, removePushToken } from "@/lib/push-notifications";
 import { useAuth } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
@@ -33,6 +34,43 @@ export default function MemberProfileScreen() {
 
   const storedMember = member?.phone ? findMemberByPhone(member.phone) : undefined;
   const isMarketingOptedIn = storedMember?.marketingOptIn ?? false;
+  const isPushOptedIn = storedMember?.pushNotificationOptIn ?? true;
+
+  const handleTogglePushNotifications = useCallback(async () => {
+    if (!storedMember || !member?.id) return;
+    const newValue = !isPushOptedIn;
+    updateMemberProfile(storedMember.id, { pushNotificationOptIn: newValue });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (newValue) {
+      try {
+        console.log("[Profile] Re-registering push notifications...");
+        const token = await registerForPushNotifications();
+        if (token) {
+          await savePushToken(member.id, token);
+          console.log("[Profile] Push token saved after opt-in");
+        }
+      } catch (err) {
+        console.error("[Profile] Push re-registration error:", err);
+      }
+      Alert.alert(
+        "Push notifications enabled",
+        "You'll now receive push notifications about deals, rewards, and updates.",
+      );
+    } else {
+      try {
+        console.log("[Profile] Removing push token for member", member.id);
+        await removePushToken(member.id);
+      } catch (err) {
+        console.error("[Profile] Push token removal error:", err);
+      }
+      Alert.alert(
+        "Push notifications disabled",
+        "You've opted out of push notifications. You can re-enable anytime.",
+      );
+    }
+    console.log("[Profile] Push notification opt-in toggled to:", newValue);
+  }, [isPushOptedIn, storedMember, member?.id, updateMemberProfile]);
 
   const handleToggleMarketing = useCallback(() => {
     if (!storedMember) return;
@@ -220,6 +258,40 @@ export default function MemberProfileScreen() {
             {isMarketingOptedIn ? <BellOff color="#F87171" size={16} /> : <Bell color="#22C55E" size={16} />}
             <Text style={isMarketingOptedIn ? styles.marketingOptOutText : styles.marketingOptInText}>
               {isMarketingOptedIn ? "Opt out of marketing texts" : "Opt in to marketing texts"}
+            </Text>
+          </Pressable>
+        </Panel>
+
+        <Panel testID="profile-push-panel">
+          <SectionTitle copy="Manage your push notification preferences." title="Push notifications" />
+
+          <View style={styles.marketingRow}>
+            <View style={styles.marketingIconWrap}>
+              {isPushOptedIn ? <Bell color="#22C55E" size={18} /> : <BellOff color="#C8AA94" size={18} />}
+            </View>
+            <View style={styles.marketingContent}>
+              <Text style={styles.marketingTitle}>
+                {isPushOptedIn ? "Push notifications enabled" : "Push notifications disabled"}
+              </Text>
+              <Text style={styles.marketingSubtitle}>
+                {isPushOptedIn
+                  ? "You'll receive push notifications about deals, rewards, and updates."
+                  : "You won't receive any push notifications."}
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={handleTogglePushNotifications}
+            style={({ pressed }) => [
+              isPushOptedIn ? styles.marketingOptOutButton : styles.marketingOptInButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.985 }] },
+            ]}
+            testID="profile-push-toggle"
+          >
+            {isPushOptedIn ? <BellOff color="#F87171" size={16} /> : <Bell color="#22C55E" size={16} />}
+            <Text style={isPushOptedIn ? styles.marketingOptOutText : styles.marketingOptInText}>
+              {isPushOptedIn ? "Opt out of push notifications" : "Opt in to push notifications"}
             </Text>
           </Pressable>
         </Panel>

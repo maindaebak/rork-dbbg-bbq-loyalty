@@ -103,6 +103,28 @@ export async function savePushToken(memberId: string, token: string): Promise<vo
   }
 }
 
+export async function removePushToken(memberId: string): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    console.warn("[PushNotifications] Supabase not configured, cannot remove token");
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("push_tokens")
+      .delete()
+      .eq("member_id", memberId);
+
+    if (error) {
+      console.error("[PushNotifications] Remove token error:", error.message);
+    } else {
+      console.log("[PushNotifications] Token removed for member", memberId);
+    }
+  } catch (err) {
+    console.error("[PushNotifications] Remove token exception:", err);
+  }
+}
+
 export async function getAllPushTokens(): Promise<{ memberId: string; token: string; platform: string }[]> {
   if (!isSupabaseConfigured()) {
     console.warn("[PushNotifications] Supabase not configured");

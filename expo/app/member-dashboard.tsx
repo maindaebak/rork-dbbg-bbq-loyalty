@@ -27,8 +27,12 @@ export default function MemberDashboardScreen() {
   const { member, logout } = useAuth();
   const { getActivePoints, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday } = useMembersStore();
 
+  const { findMemberByPhone } = useMembersStore();
+  const storedMember = member?.phone ? findMemberByPhone(member.phone) : undefined;
+  const isPushOptedIn = storedMember?.pushNotificationOptIn ?? true;
+
   useEffect(() => {
-    if (!member?.id) return;
+    if (!member?.id || !isPushOptedIn) return;
     const setupPush = async () => {
       try {
         const token = await registerForPushNotifications();
@@ -41,7 +45,7 @@ export default function MemberDashboardScreen() {
       }
     };
     void setupPush();
-  }, [member?.id]);
+  }, [member?.id, isPushOptedIn]);
 
   const points = useMemo<number>(() => {
     if (!member?.id) return 0;

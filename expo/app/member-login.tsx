@@ -107,6 +107,8 @@ export default function MemberLoginScreen() {
             birthdate: existingMember.birthdate,
             birthYear: existingMember.birthYear,
             createdAt: existingMember.createdAt,
+            marketingOptIn: existingMember.marketingOptIn ?? false,
+            pushNotificationOptIn: existingMember.pushNotificationOptIn ?? true,
           }
         : {
             id: `member-${Date.now()}`,
@@ -115,6 +117,8 @@ export default function MemberLoginScreen() {
             birthdate: "",
             birthYear: "",
             createdAt: new Date().toISOString(),
+            marketingOptIn: false,
+            pushNotificationOptIn: true,
           };
 
       console.log("[Login] Member logged in:", member.fullName);

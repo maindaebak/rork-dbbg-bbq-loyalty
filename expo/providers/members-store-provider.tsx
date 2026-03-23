@@ -25,6 +25,7 @@ export interface StoredMember {
   points: number;
   pointsHistory: PointsEntry[];
   marketingOptIn: boolean;
+  pushNotificationOptIn: boolean;
 }
 
 export type PointsEntryType = "earned" | "redeemed";
@@ -84,6 +85,7 @@ function dbMemberToStored(member: DbMember, history: DbPointsEntry[]): StoredMem
       note: entry.note ?? "",
     })),
     marketingOptIn: member.marketing_opt_in ?? false,
+    pushNotificationOptIn: true,
   };
 }
 
@@ -250,7 +252,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
         return existing;
       }
       registerMemberMutation.mutate(member);
-      const optimistic: StoredMember = { ...member, points: 0, pointsHistory: [], marketingOptIn: member.marketingOptIn ?? false };
+      const optimistic: StoredMember = { ...member, points: 0, pointsHistory: [], marketingOptIn: member.marketingOptIn ?? false, pushNotificationOptIn: member.pushNotificationOptIn ?? true };
       setMembers((prev) => [...prev, optimistic]);
       return optimistic;
     },
@@ -578,7 +580,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   );
 
   const updateMemberProfile = useCallback(
-    (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear" | "marketingOptIn">>) => {
+    (memberId: string, updates: Partial<Pick<StoredMember, "fullName" | "phone" | "birthdate" | "birthYear" | "marketingOptIn" | "pushNotificationOptIn">>) => {
       setMembers((prev) =>
         prev.map((m) => (m.id === memberId ? { ...m, ...updates } : m))
       );
