@@ -4,9 +4,12 @@ import {
   Bell,
   BellOff,
   CheckCircle2,
+  ChevronRight,
+  FileText,
   Info,
   MessageSquareMore,
   Phone,
+  Shield,
   ShieldAlert,
   Trash2,
   User,
@@ -296,6 +299,36 @@ export default function MemberProfileScreen() {
           </Pressable>
         </Panel>
 
+        <Panel testID="profile-legal-panel">
+          <SectionTitle copy="Review our legal documents anytime." title="Legal" />
+
+          <Pressable
+            onPress={() => router.push("/terms-conditions")}
+            style={({ pressed }) => [styles.legalRow, pressed && { opacity: 0.7 }]}
+            testID="profile-terms-link"
+          >
+            <View style={styles.legalIconWrap}>
+              <FileText color="#F7C58B" size={16} />
+            </View>
+            <Text style={styles.legalText}>Terms & Conditions</Text>
+            <ChevronRight color="#C8AA94" size={18} />
+          </Pressable>
+
+          <View style={styles.divider} />
+
+          <Pressable
+            onPress={() => router.push("/privacy-policy")}
+            style={({ pressed }) => [styles.legalRow, pressed && { opacity: 0.7 }]}
+            testID="profile-privacy-link"
+          >
+            <View style={styles.legalIconWrap}>
+              <Shield color="#F7C58B" size={16} />
+            </View>
+            <Text style={styles.legalText}>Privacy Policy</Text>
+            <ChevronRight color="#C8AA94" size={18} />
+          </Pressable>
+        </Panel>
+
         <Panel testID="profile-danger-panel">
           <SectionTitle copy="Permanently remove your account and all data." title="Danger zone" />
 
@@ -531,6 +564,26 @@ const styles = StyleSheet.create({
   },
   marketingTitle: {
     color: "#FFF7ED",
+    fontSize: 15,
+    fontWeight: "700" as const,
+  },
+  legalIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(247, 197, 139, 0.08)",
+    borderRadius: 10,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  legalRow: {
+    alignItems: "center",
+    flexDirection: "row" as const,
+    gap: 12,
+    paddingVertical: 4,
+  },
+  legalText: {
+    color: "#FFF7ED",
+    flex: 1,
     fontSize: 15,
     fontWeight: "700" as const,
   },
