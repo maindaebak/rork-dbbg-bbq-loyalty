@@ -624,14 +624,18 @@ export default function AdminMemberDetailScreen() {
             </View>
           )}
 
-          {stats.visitCount >= 5 && (
-            <View style={styles.regularBadge}>
-              <Flame color="#F59E0B" size={16} />
-              <Text style={styles.regularBadgeText}>
-                {stats.visitCount >= 20 ? "VIP Regular" : stats.visitCount >= 10 ? "Frequent Visitor" : "Regular Customer"}
-              </Text>
-            </View>
-          )}
+          {(() => {
+            const badges = (settings.visitBadges ?? []).filter(b => stats.visitCount >= b.minVisits);
+            if (badges.length === 0) return null;
+            const sorted = [...badges].sort((a, b) => b.minVisits - a.minVisits);
+            const topBadge = sorted[0];
+            return (
+              <View style={styles.regularBadge}>
+                <Flame color="#F59E0B" size={16} />
+                <Text style={styles.regularBadgeText}>{topBadge.name}</Text>
+              </View>
+            );
+          })()}
         </CollapsiblePanel>
 
         {foundMember.pointsHistory.length > 0 && (

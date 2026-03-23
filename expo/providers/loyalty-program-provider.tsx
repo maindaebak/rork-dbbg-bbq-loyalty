@@ -10,6 +10,7 @@ import {
   type LoyaltyTier,
   type MemberPerk,
   type MembershipReward,
+  type VisitBadge,
 } from "@/constants/loyalty-program";
 import { supabase } from "@/lib/supabase";
 
@@ -54,6 +55,13 @@ function sanitizeSettings(input: LoyaltyProgramSettings): LoyaltyProgramSettings
     termsAndConditions: input.termsAndConditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
     privacyPolicy: input.privacyPolicy ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.privacyPolicy,
     tierBonusEnabled: input.tierBonusEnabled ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tierBonusEnabled,
+    visitBadges: (input.visitBadges ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.visitBadges).map(
+      (badge: VisitBadge, index: number) => ({
+        ...badge,
+        name: badge.name.trim() || `Badge ${index + 1}`,
+        minVisits: Math.max(1, normalizeNumber(badge.minVisits, 5)),
+      })
+    ),
   };
 }
 
@@ -67,6 +75,7 @@ interface DbLoyaltySettings {
   terms_and_conditions: string | null;
   privacy_policy: string | null;
   tier_bonus_enabled: boolean | null;
+  visit_badges: VisitBadge[] | null;
   updated_at: string;
 }
 
@@ -80,6 +89,7 @@ function dbSettingsToLocal(db: DbLoyaltySettings): LoyaltyProgramSettings {
     termsAndConditions: db.terms_and_conditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,
     privacyPolicy: db.privacy_policy ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.privacyPolicy,
     tierBonusEnabled: db.tier_bonus_enabled ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.tierBonusEnabled,
+    visitBadges: (db.visit_badges ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.visitBadges) as VisitBadge[],
   };
 }
 
@@ -143,6 +153,7 @@ export const [LoyaltyProgramProvider, useLoyaltyProgram] = createContextHook(() 
           terms_and_conditions: sanitized.termsAndConditions,
           privacy_policy: sanitized.privacyPolicy,
           tier_bonus_enabled: sanitized.tierBonusEnabled,
+          visit_badges: sanitized.visitBadges as unknown as Record<string, unknown>[],
           updated_at: new Date().toISOString(),
         });
 

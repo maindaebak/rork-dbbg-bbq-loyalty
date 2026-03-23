@@ -30,6 +30,12 @@ export interface MemberPerk {
   active: boolean;
 }
 
+export interface VisitBadge {
+  id: string;
+  name: string;
+  minVisits: number;
+}
+
 export interface LoyaltyProgramSettings {
   pointsPerDollar: number;
   tiers: LoyaltyTier[];
@@ -39,6 +45,7 @@ export interface LoyaltyProgramSettings {
   termsAndConditions: string;
   privacyPolicy: string;
   tierBonusEnabled: boolean;
+  visitBadges: VisitBadge[];
 }
 
 const DEFAULT_TERMS = `Terms and Conditions - Dae Bak Bon Ga Loyalty Program
@@ -217,6 +224,11 @@ export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
     },
   ],
   tierBonusEnabled: true,
+  visitBadges: [
+    { id: "regular", name: "Regular Customer", minVisits: 5 },
+    { id: "frequent", name: "Frequent Visitor", minVisits: 10 },
+    { id: "vip-regular", name: "VIP Regular", minVisits: 20 },
+  ],
   rewards: [
     {
       id: "banchan",

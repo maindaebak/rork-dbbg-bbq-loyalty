@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   Crown,
   FileText,
+  Flame,
   Gift,
   Plus,
   RotateCcw,
@@ -25,7 +26,7 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import type { LoyaltyProgramSettings, LoyaltyReward, LoyaltyTier, MemberPerk, MembershipReward } from "@/constants/loyalty-program";
+import type { LoyaltyProgramSettings, LoyaltyReward, LoyaltyTier, MemberPerk, MembershipReward, VisitBadge } from "@/constants/loyalty-program";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 
 const TIER_COLORS = ["#F59E0B", "#FB7185", "#F97316", "#A78BFA", "#34D399", "#60A5FA"];
@@ -55,6 +56,7 @@ export default function AdminSettingsScreen() {
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
   const [privacyText, setPrivacyText] = useState<string>(settings.privacyPolicy ?? "");
   const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
+  const [visitBadges, setVisitBadges] = useState<VisitBadge[]>(settings.visitBadges ?? []);
 
   useEffect(() => {
     setPointsPerDollar(String(settings.pointsPerDollar));
@@ -65,6 +67,7 @@ export default function AdminSettingsScreen() {
     setTermsText(settings.termsAndConditions ?? "");
     setPrivacyText(settings.privacyPolicy ?? "");
     setTierBonusEnabled(settings.tierBonusEnabled ?? true);
+    setVisitBadges(settings.visitBadges ?? []);
   }, [settings]);
 
   const handleSave = useCallback(() => {
@@ -82,12 +85,13 @@ export default function AdminSettingsScreen() {
       termsAndConditions: termsText,
       privacyPolicy: privacyText,
       tierBonusEnabled,
+      visitBadges,
     };
     console.log("[AdminSettings] Saving settings", next);
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [memberPerks, membershipRewards, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
+  }, [memberPerks, membershipRewards, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, visitBadges, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -215,6 +219,27 @@ export default function AdminSettingsScreen() {
         return { ...p, requiredTiers: next };
       }),
     );
+  }, []);
+
+  const updateVisitBadge = useCallback((index: number, field: keyof VisitBadge, value: string) => {
+    setVisitBadges((prev) =>
+      prev.map((b, i) => {
+        if (i !== index) return b;
+        if (field === "minVisits") return { ...b, minVisits: parseInt(value, 10) || 1 };
+        return { ...b, [field]: value };
+      }),
+    );
+  }, []);
+
+  const addVisitBadge = useCallback(() => {
+    setVisitBadges((prev) => [
+      ...prev,
+      { id: uid(), name: "", minVisits: 5 },
+    ]);
+  }, []);
+
+  const removeVisitBadge = useCallback((index: number) => {
+    setVisitBadges((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const moveMembershipReward = useCallback((index: number, direction: "up" | "down") => {
@@ -500,6 +525,51 @@ export default function AdminSettingsScreen() {
           >
             <Plus color="#34D399" size={16} />
             <Text style={styles.addMembershipBtnText}>Add membership reward</Text>
+          </Pressable>
+        </Panel>
+
+        <Panel testID="admin-visit-badges-panel">
+          <SectionTitle
+            copy="Configure visit-based badges that appear on member profiles. Each badge requires a minimum number of visits."
+            title="Visit Badges"
+          />
+          {visitBadges.map((badge, index) => (
+            <View key={badge.id} style={styles.editCard}>
+              <View style={styles.editCardHeader}>
+                <Flame color="#F59E0B" size={14} />
+                <Text style={styles.editCardIndex}>Badge {index + 1}</Text>
+                <Pressable
+                  onPress={() => removeVisitBadge(index)}
+                  style={styles.removeBtn}
+                  testID={`admin-remove-badge-${index}`}
+                >
+                  <Trash2 color="#EF4444" size={14} />
+                </Pressable>
+              </View>
+              <InputField
+                label="Badge name"
+                onChangeText={(v) => updateVisitBadge(index, "name", v)}
+                placeholder="e.g. Regular Customer"
+                testID={`admin-badge-name-${index}`}
+                value={badge.name}
+              />
+              <InputField
+                label="Minimum visits required"
+                keyboardType="numeric"
+                onChangeText={(v) => updateVisitBadge(index, "minVisits", v.replace(/\D/g, ""))}
+                placeholder="5"
+                testID={`admin-badge-visits-${index}`}
+                value={String(badge.minVisits)}
+              />
+            </View>
+          ))}
+          <Pressable
+            onPress={addVisitBadge}
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+            testID="admin-add-badge"
+          >
+            <Plus color="#F59E0B" size={16} />
+            <Text style={styles.addBtnText}>Add badge</Text>
           </Pressable>
         </Panel>
 
