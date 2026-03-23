@@ -464,7 +464,7 @@ function AdminMarketingContent() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Marketing texts", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
+      <Stack.Screen options={{ title: "Marketing texts", headerStyle: { backgroundColor: "#120A08" }, headerTintColor: "#FFF7ED" }} />
       <LoyaltyScreen
         eyebrow="Staff tools"
         subtitle="Send promotional text messages to opted-in members."

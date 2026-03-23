@@ -484,7 +484,7 @@ function AdminNotificationsContent() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Push notifications", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
+      <Stack.Screen options={{ title: "Push notifications", headerStyle: { backgroundColor: "#120A08" }, headerTintColor: "#FFF7ED" }} />
       <LoyaltyScreen
         eyebrow="Staff tools"
         subtitle="Send push notifications to members who have the app installed on their device."
