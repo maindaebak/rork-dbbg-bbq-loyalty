@@ -55,12 +55,16 @@ export default function MemberDashboardScreen() {
   const sortedTiers = useMemo(() => [...settings.tiers].sort((a, b) => a.minPoints - b.minPoints), [settings.tiers]);
 
   const currentTier = useMemo(() => {
-    return sortedTiers.reduce((activeTier, tier) => {
+    let active = sortedTiers[0];
+    for (const tier of sortedTiers) {
       if (points >= tier.minPoints) {
-        return tier;
+        active = tier;
+      } else {
+        break;
       }
-      return activeTier;
-    }, sortedTiers[0]);
+    }
+    console.log(`[MemberDashboard] currentTier resolved: ${active?.id} (${active?.name}) for ${points} points`);
+    return active;
   }, [points, sortedTiers]);
 
   const nextTier = useMemo(() => {
@@ -227,6 +231,9 @@ export default function MemberDashboardScreen() {
               const requiredTierNames = requiredTiers
                 .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
                 .filter(Boolean);
+              const lowestRequiredTier = requiredTiers.length > 0
+                ? sortedTiers.find((t) => requiredTiers.includes(t.id))
+                : null;
               console.log(`[MemberDashboard] Reward "${reward.title}" | requiredTiers: [${requiredTiers.join(", ")}] | currentTier: ${currentTier?.id ?? "none"} (${currentTier?.name ?? "none"}) | activePoints: ${points} | isUnlocked: ${isUnlocked}`);
               return (
                 <MembershipRewardCard
@@ -236,6 +243,8 @@ export default function MemberDashboardScreen() {
                   dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
                   isLocked={!isUnlocked}
                   requiredTierNames={requiredTierNames as string[]}
+                  lowestRequiredTierName={lowestRequiredTier?.name}
+                  lowestRequiredTierAccent={lowestRequiredTier?.accent}
                 />
               );
             })
@@ -442,7 +451,7 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
   );
 }
 
-function MembershipRewardCard({ reward, redeemed, dailyLimitReached, isLocked, requiredTierNames }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean; isLocked?: boolean; requiredTierNames?: string[] }) {
+function MembershipRewardCard({ reward, redeemed, dailyLimitReached, isLocked, requiredTierNames, lowestRequiredTierName, lowestRequiredTierAccent }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean; isLocked?: boolean; requiredTierNames?: string[]; lowestRequiredTierName?: string; lowestRequiredTierAccent?: string }) {
   if (isLocked) {
     return (
       <View style={[styles.membershipCard, styles.membershipCardLocked]} testID={`membership-reward-${reward.id}-locked`}>
@@ -453,11 +462,21 @@ function MembershipRewardCard({ reward, redeemed, dailyLimitReached, isLocked, r
           <View style={styles.lockedTierRow}>
             <Lock color="#8E6D56" size={11} />
             <Text style={styles.lockedTierText}>
-              {requiredTierNames && requiredTierNames.length > 0
-                ? `${requiredTierNames.join(" / ")} only`
-                : "Restricted"}
+              {lowestRequiredTierName
+                ? `Reach ${lowestRequiredTierName} to unlock`
+                : requiredTierNames && requiredTierNames.length > 0
+                  ? `${requiredTierNames.join(" / ")} only`
+                  : "Restricted"}
             </Text>
           </View>
+          {lowestRequiredTierAccent && (
+            <View style={[styles.lockedTierHintBadge, { backgroundColor: `${lowestRequiredTierAccent}15`, borderColor: `${lowestRequiredTierAccent}30` }]}>
+              <Flame color={lowestRequiredTierAccent} size={11} />
+              <Text style={[styles.lockedTierHintText, { color: lowestRequiredTierAccent }]}>
+                {requiredTierNames && requiredTierNames.length > 0 ? requiredTierNames.join(" / ") : lowestRequiredTierName}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={styles.membershipLockedBadge}>
           <Lock color="#8E6D56" size={14} />
@@ -1134,6 +1153,21 @@ const styles = StyleSheet.create({
   membershipLockedText: {
     color: "#8E6D56",
     fontSize: 12,
+    fontWeight: "700" as const,
+  },
+  lockedTierHintBadge: {
+    alignItems: "center" as const,
+    alignSelf: "flex-start" as const,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row" as const,
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  lockedTierHintText: {
+    fontSize: 10,
     fontWeight: "700" as const,
   },
 });
