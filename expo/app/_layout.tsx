@@ -30,6 +30,14 @@ function RootLayoutNav() {
       <Stack.Screen name="admin-marketing" options={{ headerBackTitle: "Dashboard" }} />
       <Stack.Screen name="admin-notifications" options={{ headerBackTitle: "Dashboard" }} />
       <Stack.Screen name="admin-settings" options={{ headerBackTitle: "Dashboard" }} />
+      <Stack.Screen name="settings-points" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-tiers" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-rewards" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-membership-rewards" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-member-perks" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-visit-badges" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-privacy" options={{ headerBackTitle: "Settings" }} />
+      <Stack.Screen name="settings-terms" options={{ headerBackTitle: "Settings" }} />
       <Stack.Screen name="rewards" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="membership-rewards" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="terms-conditions" options={{ headerBackTitle: "Back" }} />
