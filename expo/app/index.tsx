@@ -168,7 +168,7 @@ export default function IndexScreen() {
             <CollapsiblePerk
               icon={<Star color="#FB7185" size={16} />}
               title="Unlock Membership Tiers"
-              description="Rise through Ember, Sear, and Dae Bak VIP tiers. Each level unlocks bonus points and exclusive perks that make every visit even more rewarding."
+              description="Rise through the tiers to unlock bonus points and exclusive perks that make every visit more rewarding."
               accent="#FB7185"
             />
             <CollapsiblePerk
