@@ -1,16 +1,17 @@
-import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  } as Notifications.NotificationBehavior),
-});
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    } as Notifications.NotificationBehavior),
+  });
+}
 
 export async function registerForPushNotifications(): Promise<string | null> {
   if (Platform.OS === "web") {
@@ -18,7 +19,15 @@ export async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 
-  if (!Device.isDevice) {
+  let isDevice = false;
+  try {
+    const Device = await import("expo-device");
+    isDevice = Device.isDevice;
+  } catch {
+    console.log("[PushNotifications] expo-device not available");
+  }
+
+  if (!isDevice) {
     console.log("[PushNotifications] Not a physical device - skipping registration");
     return null;
   }
