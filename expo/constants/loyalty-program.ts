@@ -18,11 +18,24 @@ export interface MembershipReward {
   requiredTiers?: string[];
 }
 
+export interface MemberPerk {
+  id: string;
+  title: string;
+  description: string;
+  accent: string;
+  icon: string;
+  validFrom?: string;
+  validUntil?: string;
+  requiredTiers?: string[];
+  active: boolean;
+}
+
 export interface LoyaltyProgramSettings {
   pointsPerDollar: number;
   tiers: LoyaltyTier[];
   rewards: LoyaltyReward[];
   membershipRewards: MembershipReward[];
+  memberPerks: MemberPerk[];
   termsAndConditions: string;
   privacyPolicy: string;
   tierBonusEnabled: boolean;
@@ -146,6 +159,32 @@ export const DEFAULT_LOYALTY_PROGRAM_SETTINGS: LoyaltyProgramSettings = {
   pointsPerDollar: 8,
   termsAndConditions: DEFAULT_TERMS,
   privacyPolicy: DEFAULT_PRIVACY_POLICY,
+  memberPerks: [
+    {
+      id: "happy-hour",
+      title: "Happy Hour Special",
+      description: "20% off all drinks every weekday 4-6 PM. Members only!",
+      accent: "#F59E0B",
+      icon: "beer",
+      active: true,
+    },
+    {
+      id: "birthday-bonus",
+      title: "Birthday Month Treat",
+      description: "Enjoy a complimentary dessert during your birthday month.",
+      accent: "#FB7185",
+      icon: "cake",
+      active: true,
+    },
+    {
+      id: "early-access",
+      title: "Early Access to New Menu",
+      description: "Be the first to try our seasonal menu items before public launch.",
+      accent: "#60A5FA",
+      icon: "sparkles",
+      active: true,
+    },
+  ],
   membershipRewards: [
     {
       id: "welcome-drink",

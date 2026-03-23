@@ -11,7 +11,8 @@ import { useAuth } from "@/providers/auth-provider";
 import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown } from "lucide-react-native";
+import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, Zap, Beer, Cake, Sparkles, Tag, Percent, PartyPopper } from "lucide-react-native";
+import type { MemberPerk } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -233,6 +234,12 @@ export default function MemberDashboardScreen() {
           </Pressable>
         </CollapsiblePanel>
 
+        <MemberPerksSection
+          perks={settings.memberPerks ?? []}
+          currentTierId={currentTier?.id ?? ""}
+          tiers={settings.tiers}
+        />
+
         <CollapsiblePanel
           testID="member-actions-panel"
           title="Points Management"
@@ -334,6 +341,91 @@ export default function MemberDashboardScreen() {
         </CollapsiblePanel>
       </LoyaltyScreen>
     </>
+  );
+}
+
+const PERK_ICONS: Record<string, typeof Zap> = {
+  beer: Beer,
+  cake: Cake,
+  sparkles: Sparkles,
+  tag: Tag,
+  percent: Percent,
+  party: PartyPopper,
+  zap: Zap,
+};
+
+function MemberPerksSection({ perks, currentTierId, tiers }: { perks: MemberPerk[]; currentTierId: string; tiers: typeof import("@/constants/loyalty-program").DEFAULT_LOYALTY_PROGRAM_SETTINGS.tiers }) {
+  const activePerks = useMemo(() => perks.filter(p => p.active), [perks]);
+
+  if (activePerks.length === 0) return null;
+
+  return (
+    <CollapsiblePanel
+      testID="member-perks-panel"
+      title="Member-Only Perks"
+      copy="Exclusive deals and special offers just for you"
+      icon={Zap}
+      iconColor="#FBBF24"
+    >
+      <View style={styles.perksContainer}>
+        {activePerks.map((perk) => {
+          const hasRequiredTiers = (perk.requiredTiers ?? []).length > 0;
+          const isUnlocked = !hasRequiredTiers || (perk.requiredTiers ?? []).includes(currentTierId);
+          const requiredTierNames = hasRequiredTiers
+            ? (perk.requiredTiers ?? []).map(tid => tiers.find(t => t.id === tid)?.name).filter(Boolean).join(", ")
+            : "";
+          const IconComponent = PERK_ICONS[perk.icon] ?? Zap;
+
+          return (
+            <View
+              key={perk.id}
+              style={[
+                styles.perkCard,
+                !isUnlocked && styles.perkCardLocked,
+              ]}
+              testID={`perk-card-${perk.id}`}
+            >
+              <View style={styles.perkCardInner}>
+                <View style={[styles.perkIconWrap, { backgroundColor: isUnlocked ? `${perk.accent}20` : "rgba(255,247,237,0.04)" }]}>
+                  {isUnlocked ? (
+                    <IconComponent color={perk.accent} size={20} />
+                  ) : (
+                    <Lock color="#8E6D56" size={18} />
+                  )}
+                </View>
+                <View style={styles.perkTextWrap}>
+                  <View style={styles.perkTitleRow}>
+                    <Text style={[styles.perkTitle, !isUnlocked && styles.perkTitleLocked]} numberOfLines={1}>
+                      {perk.title}
+                    </Text>
+                    {isUnlocked && (
+                      <View style={[styles.perkActiveBadge, { backgroundColor: `${perk.accent}25`, borderColor: `${perk.accent}40` }]}>
+                        <Text style={[styles.perkActiveBadgeText, { color: perk.accent }]}>Active</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.perkDescription, !isUnlocked && styles.perkDescriptionLocked]} numberOfLines={2}>
+                    {perk.description}
+                  </Text>
+                  {!isUnlocked && requiredTierNames ? (
+                    <View style={styles.perkLockedBadge}>
+                      <Lock color="#8E6D56" size={10} />
+                      <Text style={styles.perkLockedText}>Unlock at {requiredTierNames}</Text>
+                    </View>
+                  ) : null}
+                  {isUnlocked && perk.validUntil ? (
+                    <Text style={styles.perkValidText}>Valid until {perk.validUntil}</Text>
+                  ) : null}
+                </View>
+              </View>
+              {isUnlocked && (
+                <View style={[styles.perkAccentStripe, { backgroundColor: perk.accent }]} />
+              )}
+            </View>
+          );
+        })}
+      </View>
+    </CollapsiblePanel>
   );
 }
 
@@ -886,6 +978,99 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800" as const,
   },
+  perksContainer: {
+    gap: 10,
+  },
+  perkCard: {
+    backgroundColor: "rgba(255, 247, 237, 0.05)",
+    borderColor: "rgba(247, 197, 139, 0.15)",
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden" as const,
+  },
+  perkCardLocked: {
+    backgroundColor: "rgba(255, 247, 237, 0.02)",
+    borderColor: "rgba(142, 109, 86, 0.15)",
+    opacity: 0.7,
+  },
+  perkCardInner: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 14,
+    padding: 14,
+  },
+  perkIconWrap: {
+    alignItems: "center" as const,
+    borderRadius: 14,
+    height: 44,
+    justifyContent: "center" as const,
+    width: 44,
+  },
+  perkTextWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  perkTitleRow: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 8,
+  },
+  perkTitle: {
+    color: "#FFF7ED",
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  perkTitleLocked: {
+    color: "#8E6D56",
+  },
+  perkDescription: {
+    color: "#C8AA94",
+    fontSize: 13,
+    fontWeight: "500" as const,
+    lineHeight: 18,
+  },
+  perkDescriptionLocked: {
+    color: "#6B5545",
+  },
+  perkActiveBadge: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  perkActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: "800" as const,
+    textTransform: "uppercase" as const,
+  },
+  perkLockedBadge: {
+    alignItems: "center" as const,
+    alignSelf: "flex-start" as const,
+    backgroundColor: "rgba(142, 109, 86, 0.12)",
+    borderRadius: 8,
+    flexDirection: "row" as const,
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  perkLockedText: {
+    color: "#8E6D56",
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  perkValidText: {
+    color: "#8E6D56",
+    fontSize: 11,
+    fontWeight: "600" as const,
+    marginTop: 2,
+  },
+  perkAccentStripe: {
+    height: 3,
+    width: "100%",
+  },
+
   membershipNote: {
     alignItems: "center",
     backgroundColor: "rgba(52, 211, 153, 0.06)",

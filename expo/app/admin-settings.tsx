@@ -25,10 +25,20 @@ import {
   Panel,
   SectionTitle,
 } from "@/components/loyalty/ui";
-import type { LoyaltyProgramSettings, LoyaltyReward, LoyaltyTier, MembershipReward } from "@/constants/loyalty-program";
+import type { LoyaltyProgramSettings, LoyaltyReward, LoyaltyTier, MemberPerk, MembershipReward } from "@/constants/loyalty-program";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 
 const TIER_COLORS = ["#F59E0B", "#FB7185", "#F97316", "#A78BFA", "#34D399", "#60A5FA"];
+
+const PERK_ICON_OPTIONS: { value: string; label: string }[] = [
+  { value: "zap", label: "⚡" },
+  { value: "beer", label: "🍺" },
+  { value: "cake", label: "🎂" },
+  { value: "sparkles", label: "✨" },
+  { value: "tag", label: "🏷️" },
+  { value: "percent", label: "%" },
+  { value: "party", label: "🎉" },
+];
 
 function uid(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -41,6 +51,7 @@ export default function AdminSettingsScreen() {
   const [tiers, setTiers] = useState<LoyaltyTier[]>(settings.tiers);
   const [rewards, setRewards] = useState<LoyaltyReward[]>(settings.rewards);
   const [membershipRewards, setMembershipRewards] = useState<MembershipReward[]>(settings.membershipRewards ?? []);
+  const [memberPerks, setMemberPerks] = useState<MemberPerk[]>(settings.memberPerks ?? []);
   const [termsText, setTermsText] = useState<string>(settings.termsAndConditions ?? "");
   const [privacyText, setPrivacyText] = useState<string>(settings.privacyPolicy ?? "");
   const [tierBonusEnabled, setTierBonusEnabled] = useState<boolean>(settings.tierBonusEnabled ?? true);
@@ -50,6 +61,7 @@ export default function AdminSettingsScreen() {
     setTiers(settings.tiers);
     setRewards(settings.rewards);
     setMembershipRewards(settings.membershipRewards ?? []);
+    setMemberPerks(settings.memberPerks ?? []);
     setTermsText(settings.termsAndConditions ?? "");
     setPrivacyText(settings.privacyPolicy ?? "");
     setTierBonusEnabled(settings.tierBonusEnabled ?? true);
@@ -66,6 +78,7 @@ export default function AdminSettingsScreen() {
       tiers,
       rewards,
       membershipRewards,
+      memberPerks,
       termsAndConditions: termsText,
       privacyPolicy: privacyText,
       tierBonusEnabled,
@@ -74,7 +87,7 @@ export default function AdminSettingsScreen() {
     updateSettings(next);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Saved", "Loyalty program settings have been updated.");
-  }, [membershipRewards, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
+  }, [memberPerks, membershipRewards, pointsPerDollar, privacyText, rewards, termsText, tierBonusEnabled, tiers, updateSettings]);
 
   const handleReset = useCallback(() => {
     Alert.alert("Reset settings", "Restore all loyalty program settings to defaults?", [
@@ -166,6 +179,40 @@ export default function AdminSettingsScreen() {
           ? current.filter((id) => id !== tierId)
           : [...current, tierId];
         return { ...r, requiredTiers: next };
+      }),
+    );
+  }, []);
+
+  const updateMemberPerk = useCallback((index: number, field: keyof MemberPerk, value: string | boolean) => {
+    setMemberPerks((prev) =>
+      prev.map((p, i) => {
+        if (i !== index) return p;
+        return { ...p, [field]: value };
+      }),
+    );
+  }, []);
+
+  const addMemberPerk = useCallback(() => {
+    const color = TIER_COLORS[memberPerks.length % TIER_COLORS.length];
+    setMemberPerks((prev) => [
+      ...prev,
+      { id: uid(), title: "", description: "", accent: color, icon: "zap", active: true, requiredTiers: [] },
+    ]);
+  }, [memberPerks.length]);
+
+  const removeMemberPerk = useCallback((index: number) => {
+    setMemberPerks((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const toggleMemberPerkTier = useCallback((perkIndex: number, tierId: string) => {
+    setMemberPerks((prev) =>
+      prev.map((p, i) => {
+        if (i !== perkIndex) return p;
+        const current = p.requiredTiers ?? [];
+        const next = current.includes(tierId)
+          ? current.filter((id) => id !== tierId)
+          : [...current, tierId];
+        return { ...p, requiredTiers: next };
       }),
     );
   }, []);
@@ -456,6 +503,111 @@ export default function AdminSettingsScreen() {
           </Pressable>
         </Panel>
 
+        <Panel testID="admin-member-perks-panel">
+          <SectionTitle
+            copy="Create exclusive deals and special offers available to members throughout the year. These are display-only perks (not redeemable with points)."
+            title="Member-Only Perks"
+          />
+          {memberPerks.map((perk, index) => (
+            <View key={perk.id} style={styles.editCard}>
+              <View style={styles.editCardHeader}>
+                <Sparkles color="#FBBF24" size={14} />
+                <Text style={styles.editCardIndex}>Perk {index + 1}</Text>
+                <Pressable
+                  onPress={() => removeMemberPerk(index)}
+                  style={styles.removeBtn}
+                  testID={`admin-remove-perk-${index}`}
+                >
+                  <Trash2 color="#EF4444" size={14} />
+                </Pressable>
+              </View>
+              <InputField
+                label="Perk name"
+                onChangeText={(v) => updateMemberPerk(index, "title", v)}
+                placeholder="e.g. Happy Hour Special"
+                testID={`admin-perk-title-${index}`}
+                value={perk.title}
+              />
+              <InputField
+                label="Description"
+                onChangeText={(v) => updateMemberPerk(index, "description", v)}
+                placeholder="e.g. 20% off all drinks every weekday 4-6 PM"
+                testID={`admin-perk-description-${index}`}
+                value={perk.description}
+              />
+              <View style={styles.perkIconRow}>
+                <Text style={styles.perkIconLabel}>Icon</Text>
+                <View style={styles.perkIconGrid}>
+                  {PERK_ICON_OPTIONS.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => updateMemberPerk(index, "icon", opt.value)}
+                      style={[styles.perkIconOption, perk.icon === opt.value && styles.perkIconOptionSelected]}
+                      testID={`admin-perk-icon-${index}-${opt.value}`}
+                    >
+                      <Text style={styles.perkIconEmoji}>{opt.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <View style={styles.toggleTextWrap}>
+                    <Text style={styles.toggleLabel}>Active</Text>
+                    <Text style={styles.toggleCaption}>{perk.active ? "Visible to members" : "Hidden from members"}</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={perk.active}
+                  onValueChange={(v) => updateMemberPerk(index, "active", v)}
+                  trackColor={{ false: "rgba(142, 109, 86, 0.3)", true: "rgba(251, 191, 36, 0.4)" }}
+                  thumbColor={perk.active ? "#FBBF24" : "#8E6D56"}
+                  testID={`admin-perk-active-${index}`}
+                />
+              </View>
+              <View style={styles.tierVisibilitySection}>
+                <Text style={styles.tierVisibilityLabel}>Available to tiers</Text>
+                <Text style={styles.tierVisibilityHint}>
+                  {(perk.requiredTiers ?? []).length === 0
+                    ? "Available to all tiers (none selected = all)"
+                    : `Available to ${(perk.requiredTiers ?? []).length} selected tier(s). Other tiers will see it as locked.`}
+                </Text>
+                <View style={styles.tierChipGrid}>
+                  {tiers.map((tier) => {
+                    const isSelected = (perk.requiredTiers ?? []).includes(tier.id);
+                    return (
+                      <Pressable
+                        key={tier.id}
+                        onPress={() => toggleMemberPerkTier(index, tier.id)}
+                        style={({ pressed }) => [
+                          styles.tierChip,
+                          isSelected && { backgroundColor: tier.accent, borderColor: tier.accent },
+                          pressed && { opacity: 0.8 },
+                        ]}
+                        testID={`admin-perk-tier-${index}-${tier.id}`}
+                      >
+                        <View style={[styles.tierChipDot, { backgroundColor: isSelected ? "#1A120E" : tier.accent }]} />
+                        <Text style={[styles.tierChipText, isSelected && { color: "#1A120E" }]}>
+                          {tier.name || "Unnamed"}
+                        </Text>
+                        {isSelected && <Check color="#1A120E" size={14} />}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          ))}
+          <Pressable
+            onPress={addMemberPerk}
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+            testID="admin-add-perk"
+          >
+            <Plus color="#FBBF24" size={16} />
+            <Text style={styles.addPerkBtnText}>Add perk</Text>
+          </Pressable>
+        </Panel>
+
         <Panel testID="admin-privacy-panel">
           <SectionTitle
             copy="Edit the privacy policy that members can view. This explains how you collect, use, and protect their information."
@@ -697,6 +849,41 @@ const styles = StyleSheet.create({
     color: "#F7C58B",
     fontSize: 13,
     fontWeight: "800" as const,
+  },
+  addPerkBtnText: {
+    color: "#FBBF24",
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  perkIconRow: {
+    gap: 8,
+  },
+  perkIconLabel: {
+    color: "#F8E7D0",
+    fontSize: 13,
+    fontWeight: "700" as const,
+  },
+  perkIconGrid: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 8,
+  },
+  perkIconOption: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(247, 197, 139, 0.12)",
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center" as const,
+    width: 40,
+  },
+  perkIconOptionSelected: {
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    borderColor: "#FBBF24",
+  },
+  perkIconEmoji: {
+    fontSize: 16,
   },
   addMembershipBtnText: {
     color: "#34D399",
