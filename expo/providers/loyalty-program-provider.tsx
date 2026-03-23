@@ -38,7 +38,7 @@ function sanitizeSettings(input: LoyaltyProgramSettings): LoyaltyProgramSettings
         ...mr,
         title: mr.title.trim() || `Membership Reward ${index + 1}`,
         subtitle: mr.subtitle.trim() || "One-time membership reward",
-        visibleTiers: mr.visibleTiers ?? [],
+        requiredTiers: mr.requiredTiers ?? [],
       })
     ),
     termsAndConditions: input.termsAndConditions ?? DEFAULT_LOYALTY_PROGRAM_SETTINGS.termsAndConditions,

@@ -149,7 +149,7 @@ export default function AdminSettingsScreen() {
     const color = TIER_COLORS[membershipRewards.length % TIER_COLORS.length];
     setMembershipRewards((prev) => [
       ...prev,
-      { id: uid(), title: "", subtitle: "", accent: color, visibleTiers: [] },
+      { id: uid(), title: "", subtitle: "", accent: color, requiredTiers: [] },
     ]);
   }, [membershipRewards.length]);
 
@@ -161,11 +161,11 @@ export default function AdminSettingsScreen() {
     setMembershipRewards((prev) =>
       prev.map((r, i) => {
         if (i !== rewardIndex) return r;
-        const current = r.visibleTiers ?? [];
+        const current = r.requiredTiers ?? [];
         const next = current.includes(tierId)
           ? current.filter((id) => id !== tierId)
           : [...current, tierId];
-        return { ...r, visibleTiers: next };
+        return { ...r, requiredTiers: next };
       }),
     );
   }, []);
@@ -414,15 +414,15 @@ export default function AdminSettingsScreen() {
                 value={reward.subtitle}
               />
               <View style={styles.tierVisibilitySection}>
-                <Text style={styles.tierVisibilityLabel}>Visible to tiers</Text>
+                <Text style={styles.tierVisibilityLabel}>Redeemable by tiers</Text>
                 <Text style={styles.tierVisibilityHint}>
-                  {(reward.visibleTiers ?? []).length === 0
-                    ? "Visible to all tiers (none selected = all)"
-                    : `Visible to ${(reward.visibleTiers ?? []).length} selected tier(s)`}
+                  {(reward.requiredTiers ?? []).length === 0
+                    ? "Redeemable by all tiers (none selected = all)"
+                    : `Redeemable by ${(reward.requiredTiers ?? []).length} selected tier(s). Other tiers will see it as locked.`}
                 </Text>
                 <View style={styles.tierChipGrid}>
                   {tiers.map((tier) => {
-                    const isSelected = (reward.visibleTiers ?? []).includes(tier.id);
+                    const isSelected = (reward.requiredTiers ?? []).includes(tier.id);
                     return (
                       <Pressable
                         key={tier.id}

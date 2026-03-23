@@ -15,7 +15,7 @@ export interface MembershipReward {
   title: string;
   subtitle: string;
   accent: string;
-  visibleTiers?: string[];
+  requiredTiers?: string[];
 }
 
 export interface LoyaltyProgramSettings {

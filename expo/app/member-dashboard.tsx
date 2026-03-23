@@ -212,7 +212,7 @@ export default function MemberDashboardScreen() {
         >
           <View style={styles.membershipNote}>
             <Crown color="#34D399" size={16} />
-            <Text style={styles.membershipNoteText}>These rewards are free for all members. Each can be claimed once by staff when you visit (limit one per day). Show your QR code!</Text>
+            <Text style={styles.membershipNoteText}>These rewards are free for members. Each can be claimed once by staff when you visit (limit one per day). Show your QR code!</Text>
           </View>
           {member?.id && hasMemberRedeemedAnyRewardToday(member.id) && (
             <View style={styles.dailyLimitNote}>
@@ -220,27 +220,29 @@ export default function MemberDashboardScreen() {
               <Text style={styles.dailyLimitNoteText}>You've already claimed a membership reward today. Come back tomorrow for more!</Text>
             </View>
           )}
-          {(() => {
-            const visibleRewards = (settings.membershipRewards ?? []).filter((reward) => {
-              const tiers = reward.visibleTiers ?? [];
-              if (tiers.length === 0) return true;
-              return currentTier ? tiers.includes(currentTier.id) : false;
-            });
-            return visibleRewards.length > 0 ? (
-              visibleRewards.map((reward) => (
+          {(settings.membershipRewards ?? []).length > 0 ? (
+            (settings.membershipRewards ?? []).map((reward) => {
+              const requiredTiers = reward.requiredTiers ?? [];
+              const isUnlocked = requiredTiers.length === 0 || (currentTier ? requiredTiers.includes(currentTier.id) : false);
+              const requiredTierNames = requiredTiers
+                .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
+                .filter(Boolean);
+              return (
                 <MembershipRewardCard
                   key={reward.id}
                   reward={reward}
                   redeemed={member?.id ? hasMemberRedeemedReward(member.id, reward.id) : false}
                   dailyLimitReached={member?.id ? hasMemberRedeemedAnyRewardToday(member.id) : false}
+                  isLocked={!isUnlocked}
+                  requiredTierNames={requiredTierNames as string[]}
                 />
-              ))
-            ) : (
-              <View style={styles.membershipEmpty}>
-                <Text style={styles.membershipEmptyText}>No membership rewards available for your current tier. Keep earning points!</Text>
-              </View>
-            );
-          })()}
+              );
+            })
+          ) : (
+            <View style={styles.membershipEmpty}>
+              <Text style={styles.membershipEmptyText}>No membership rewards available yet.</Text>
+            </View>
+          )}
         </CollapsiblePanel>
 
         <CollapsiblePanel
@@ -439,7 +441,31 @@ function TierRoadmap({ tiers, currentPoints, currentTierId }: { tiers: typeof im
   );
 }
 
-function MembershipRewardCard({ reward, redeemed, dailyLimitReached }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean }) {
+function MembershipRewardCard({ reward, redeemed, dailyLimitReached, isLocked, requiredTierNames }: { reward: MembershipReward; redeemed: boolean; dailyLimitReached: boolean; isLocked?: boolean; requiredTierNames?: string[] }) {
+  if (isLocked) {
+    return (
+      <View style={[styles.membershipCard, styles.membershipCardLocked]} testID={`membership-reward-${reward.id}-locked`}>
+        <View style={[styles.membershipAccent, { backgroundColor: "#5A4A3F" }]} />
+        <View style={styles.membershipBody}>
+          <Text style={styles.membershipTitleLocked}>{reward.title}</Text>
+          <Text style={styles.membershipSubtitleLocked}>{reward.subtitle}</Text>
+          <View style={styles.lockedTierRow}>
+            <Lock color="#8E6D56" size={11} />
+            <Text style={styles.lockedTierText}>
+              {requiredTierNames && requiredTierNames.length > 0
+                ? `${requiredTierNames.join(" / ")} only`
+                : "Restricted"}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.membershipLockedBadge}>
+          <Lock color="#8E6D56" size={14} />
+          <Text style={styles.membershipLockedText}>Locked</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.membershipCard, redeemed && styles.membershipCardRedeemed]} testID={`membership-reward-${reward.id}`}>
       <View style={[styles.membershipAccent, { backgroundColor: redeemed ? "#6B7280" : reward.accent }]} />
@@ -1068,5 +1094,45 @@ const styles = StyleSheet.create({
     color: "#1A120E",
     fontSize: 15,
     fontWeight: "800" as const,
+  },
+  membershipCardLocked: {
+    backgroundColor: "rgba(90, 74, 63, 0.06)",
+    borderColor: "rgba(90, 74, 63, 0.18)",
+    opacity: 0.75,
+  },
+  membershipTitleLocked: {
+    color: "#8E6D56",
+    fontSize: 15,
+    fontWeight: "800" as const,
+  },
+  membershipSubtitleLocked: {
+    color: "#6B5A4E",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  lockedTierRow: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 4,
+    marginTop: 2,
+  },
+  lockedTierText: {
+    color: "#8E6D56",
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  membershipLockedBadge: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(90, 74, 63, 0.15)",
+    borderRadius: 999,
+    flexDirection: "row" as const,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  membershipLockedText: {
+    color: "#8E6D56",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
 });
