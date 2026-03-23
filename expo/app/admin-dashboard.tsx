@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import {
+  BellRing,
   ChevronRight,
   LogOut,
   Megaphone,
@@ -141,6 +142,25 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Marketing texts</Text>
               <Text style={styles.actionCaption}>Deals, birthdays, reminders</Text>
+            </View>
+            <ChevronRight color="#C8AA94" size={18} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              console.log("[AdminDashboard] Opening push notifications");
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/admin-notifications");
+            }}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
+            testID="admin-go-notifications"
+          >
+            <View style={styles.actionIcon}>
+              <BellRing color="#F7C58B" size={18} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Push notifications</Text>
+              <Text style={styles.actionCaption}>Send & schedule push alerts</Text>
             </View>
             <ChevronRight color="#C8AA94" size={18} />
           </Pressable>

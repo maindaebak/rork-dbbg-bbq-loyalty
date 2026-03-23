@@ -1,13 +1,14 @@
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Clock, Flame, Gift, Info, LogOut, Star, User } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View, LayoutAnimation, Platform, UIManager } from "react-native";
-import * as Haptics from "expo-haptics";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Platform, Pressable, StyleSheet, Text, UIManager, View, LayoutAnimation } from "react-native";
 
 import { CollapsiblePanel, LoyaltyScreen, RewardCard } from "@/components/loyalty/ui";
 import { useAuth } from "@/providers/auth-provider";
 
+import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 import { ChevronDown, ChevronUp, Lock, Check, Crown, CheckCircle, Clock as ClockIcon } from "lucide-react-native";
@@ -25,6 +26,22 @@ export default function MemberDashboardScreen() {
   const { settings } = useLoyaltyProgram();
   const { member, logout } = useAuth();
   const { getActivePoints, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday } = useMembersStore();
+
+  useEffect(() => {
+    if (!member?.id) return;
+    const setupPush = async () => {
+      try {
+        const token = await registerForPushNotifications();
+        if (token) {
+          console.log("[MemberDashboard] Push token obtained, saving...");
+          await savePushToken(member.id, token);
+        }
+      } catch (err) {
+        console.error("[MemberDashboard] Push registration error:", err);
+      }
+    };
+    void setupPush();
+  }, [member?.id]);
 
   const points = useMemo<number>(() => {
     if (!member?.id) return 0;
