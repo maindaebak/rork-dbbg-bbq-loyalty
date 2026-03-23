@@ -31,8 +31,8 @@ import {
 
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore, type StoredMember } from "@/providers/members-store-provider";
-import { Lock } from "lucide-react-native";
-import type { MembershipReward } from "@/constants/loyalty-program";
+import { Lock, Zap } from "lucide-react-native";
+import type { MembershipReward, MemberPerk } from "@/constants/loyalty-program";
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -79,7 +79,7 @@ function getMemberStats(member: StoredMember) {
 
 export default function AdminMemberDetailScreen() {
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
-  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward } = useMembersStore();
+  const { getMemberById, addPoints, removePoints, getActivePoints, updateMemberProfile, deleteMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward, hasMemberUsedPerkToday, markPerkUsed, unmarkPerkUsed, getMemberPerkUsagesToday } = useMembersStore();
   const { settings } = useLoyaltyProgram();
 
   const [dollarAmount, setDollarAmount] = useState<string>("");
@@ -365,6 +365,50 @@ export default function AdminMemberDetailScreen() {
       ],
     );
   }, [foundMember, hasMemberRedeemedReward, hasMemberRedeemedAnyRewardToday, redeemMembershipReward, settings.membershipRewards, isRewardTierLocked, getRequiredTierNames, currentTier]);
+
+  const todayPerkUsages = useMemo(() => {
+    if (!foundMember) return [];
+    return getMemberPerkUsagesToday(foundMember.id);
+  }, [foundMember, getMemberPerkUsagesToday]);
+
+  const handleTogglePerkUsed = useCallback((perk: MemberPerk) => {
+    if (!foundMember) return;
+    const isUsed = hasMemberUsedPerkToday(foundMember.id, perk.id);
+
+    if (isUsed) {
+      Alert.alert(
+        "Unmark perk",
+        `Unmark "${perk.title}" as used for ${foundMember.fullName} today?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Unmark",
+            onPress: () => {
+              unmarkPerkUsed(foundMember.id, perk.id);
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              console.log("[MemberDetail] Unmarked perk", perk.id, "for member", foundMember.id);
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        "Mark perk as used",
+        `Mark "${perk.title}" as used for ${foundMember.fullName} today?\n\nThis perk can be used once per day and resets tomorrow.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Confirm",
+            onPress: () => {
+              markPerkUsed(foundMember.id, perk.id);
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              console.log("[MemberDetail] Marked perk", perk.id, "as used for member", foundMember.id);
+            },
+          },
+        ],
+      );
+    }
+  }, [foundMember, hasMemberUsedPerkToday, markPerkUsed, unmarkPerkUsed]);
 
   const handleRedeemReward = useCallback((rewardId: string, rewardTitle: string, rewardPoints: number) => {
     if (!foundMember) return;
@@ -679,6 +723,79 @@ export default function AdminMemberDetailScreen() {
             </View>
           ))}
         </CollapsiblePanel>
+
+        {(settings.memberPerks ?? []).filter(p => p.active).length > 0 && (
+          <CollapsiblePanel
+            testID="detail-member-perks-panel"
+            title="Member-Only Perks"
+            copy={`Track daily perk usage for ${foundMember.fullName}. Each perk can be used once per day.`}
+            icon={Zap}
+            iconColor="#FBBF24"
+          >
+            <View style={styles.perkInfoBanner}>
+              <Zap color="#FBBF24" size={16} />
+              <Text style={styles.perkInfoText}>Tap a perk to mark it as used today. Checkmarks reset automatically each day. {todayPerkUsages.length > 0 ? `${todayPerkUsages.length} perk${todayPerkUsages.length !== 1 ? "s" : ""} used today.` : "No perks used yet today."}</Text>
+            </View>
+            {(settings.memberPerks ?? []).filter(p => p.active).map((perk) => {
+              const isUsedToday = foundMember ? hasMemberUsedPerkToday(foundMember.id, perk.id) : false;
+              const tierLocked = (perk.requiredTiers ?? []).length > 0 && (!currentTier || !(perk.requiredTiers ?? []).includes(currentTier.id));
+              const requiredTierNames = (perk.requiredTiers ?? [])
+                .map((tid) => settings.tiers.find((t) => t.id === tid)?.name)
+                .filter(Boolean) as string[];
+
+              return (
+                <Pressable
+                  key={perk.id}
+                  onPress={() => !tierLocked && handleTogglePerkUsed(perk)}
+                  disabled={tierLocked}
+                  style={({ pressed }) => [
+                    styles.perkUsageCard,
+                    isUsedToday && styles.perkUsageCardUsed,
+                    tierLocked && styles.perkUsageCardLocked,
+                    pressed && !tierLocked && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+                  ]}
+                  testID={`detail-perk-${perk.id}`}
+                >
+                  <View style={[
+                    styles.perkUsageCheckbox,
+                    isUsedToday && styles.perkUsageCheckboxChecked,
+                    tierLocked && styles.perkUsageCheckboxLocked,
+                  ]}>
+                    {isUsedToday ? (
+                      <CheckCircle color="#1A120E" size={18} />
+                    ) : tierLocked ? (
+                      <Lock color="#8E6D56" size={14} />
+                    ) : (
+                      <View style={styles.perkUsageCheckboxEmpty} />
+                    )}
+                  </View>
+                  <View style={styles.perkUsageBody}>
+                    <Text style={[
+                      styles.perkUsageTitle,
+                      isUsedToday && styles.perkUsageTitleUsed,
+                      tierLocked && styles.perkUsageTitleLocked,
+                    ]}>{perk.title}</Text>
+                    <Text style={[
+                      styles.perkUsageSubtitle,
+                      tierLocked && styles.perkUsageSubtitleLocked,
+                    ]}>{perk.description}</Text>
+                    {tierLocked && requiredTierNames.length > 0 && (
+                      <View style={styles.perkUsageTierLocked}>
+                        <Lock color="#8E6D56" size={10} />
+                        <Text style={styles.perkUsageTierLockedText}>{requiredTierNames.join(" / ")} only</Text>
+                      </View>
+                    )}
+                  </View>
+                  {isUsedToday && (
+                    <View style={styles.perkUsedBadge}>
+                      <Text style={styles.perkUsedBadgeText}>Used</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </CollapsiblePanel>
+        )}
 
         {settings.membershipRewards.length > 0 && (
           <CollapsiblePanel
@@ -1631,5 +1748,112 @@ const styles = StyleSheet.create({
     color: "#8E6D56",
     fontSize: 12,
     fontWeight: "700" as const,
+  },
+  perkInfoBanner: {
+    alignItems: "center",
+    backgroundColor: "rgba(251, 191, 36, 0.06)",
+    borderColor: "rgba(251, 191, 36, 0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  perkInfoText: {
+    color: "#D4A96A",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 18,
+  },
+  perkUsageCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.04)",
+    borderColor: "rgba(251, 191, 36, 0.12)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  perkUsageCardUsed: {
+    backgroundColor: "rgba(251, 191, 36, 0.08)",
+    borderColor: "rgba(251, 191, 36, 0.25)",
+  },
+  perkUsageCardLocked: {
+    backgroundColor: "rgba(90, 74, 63, 0.06)",
+    borderColor: "rgba(90, 74, 63, 0.18)",
+    opacity: 0.75,
+  },
+  perkUsageCheckbox: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.06)",
+    borderColor: "rgba(251, 191, 36, 0.2)",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  perkUsageCheckboxChecked: {
+    backgroundColor: "#FBBF24",
+    borderColor: "#FBBF24",
+  },
+  perkUsageCheckboxLocked: {
+    backgroundColor: "rgba(90, 74, 63, 0.1)",
+    borderColor: "rgba(90, 74, 63, 0.2)",
+  },
+  perkUsageCheckboxEmpty: {
+    backgroundColor: "rgba(255, 247, 237, 0.08)",
+    borderRadius: 6,
+    height: 14,
+    width: 14,
+  },
+  perkUsageBody: {
+    flex: 1,
+    gap: 3,
+  },
+  perkUsageTitle: {
+    color: "#FFF7ED",
+    fontSize: 14,
+    fontWeight: "800" as const,
+  },
+  perkUsageTitleUsed: {
+    color: "#FBBF24",
+  },
+  perkUsageTitleLocked: {
+    color: "#8E6D56",
+  },
+  perkUsageSubtitle: {
+    color: "#C9AD99",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  perkUsageSubtitleLocked: {
+    color: "#6B5A4E",
+  },
+  perkUsageTierLocked: {
+    alignItems: "center" as const,
+    flexDirection: "row" as const,
+    gap: 4,
+    marginTop: 2,
+  },
+  perkUsageTierLockedText: {
+    color: "#8E6D56",
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  perkUsedBadge: {
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  perkUsedBadgeText: {
+    color: "#FBBF24",
+    fontSize: 11,
+    fontWeight: "800" as const,
+    textTransform: "uppercase" as const,
   },
 });

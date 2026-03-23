@@ -8,11 +8,18 @@ import { supabase } from "@/lib/supabase";
 
 const MEMBERS_STORAGE_KEY = "dbbg-members-store";
 const MEMBERSHIP_REDEMPTIONS_KEY = "dbbg-membership-redemptions";
+const PERK_USAGES_KEY = "dbbg-perk-usages";
 
 export interface MembershipRedemption {
   memberId: string;
   rewardId: string;
   redeemedAt: string;
+}
+
+export interface PerkUsage {
+  memberId: string;
+  perkId: string;
+  usedAt: string;
 }
 
 export interface StoredMember {
@@ -173,10 +180,57 @@ async function fetchMembershipRedemptions(): Promise<MembershipRedemption[]> {
   }
 }
 
+function getTodayStr(): string {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+async function fetchPerkUsages(): Promise<PerkUsage[]> {
+  try {
+    console.log("[MembersStore] Fetching perk usages from Supabase...");
+    const todayStr = getTodayStr();
+    const startOfDay = `${todayStr}T00:00:00.000Z`;
+    const endOfDay = `${todayStr}T23:59:59.999Z`;
+
+    const { data, error } = await supabase
+      .from("perk_usages")
+      .select("*")
+      .gte("used_at", startOfDay)
+      .lte("used_at", endOfDay);
+
+    if (error) {
+      console.error("[MembersStore] Supabase perk_usages error:", error.message);
+      throw error;
+    }
+
+    return (data ?? []).map((r: { member_id: string; perk_id: string; used_at: string }) => ({
+      memberId: r.member_id,
+      perkId: r.perk_id,
+      usedAt: r.used_at,
+    }));
+  } catch (err) {
+    console.warn("[MembersStore] Falling back to local for perk usages", err);
+    const raw = await AsyncStorage.getItem(PERK_USAGES_KEY);
+    if (!raw) return [];
+    try {
+      const all = JSON.parse(raw) as PerkUsage[];
+      const todayStr = getTodayStr();
+      return all.filter((p) => {
+        const d = new Date(p.usedAt);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return dStr === todayStr;
+      });
+    } catch {
+      return [];
+    }
+  }
+}
+
 export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [members, setMembers] = useState<StoredMember[]>([]);
   const [membershipRedemptions, setMembershipRedemptions] = useState<MembershipRedemption[]>([]);
+  const [perkUsages, setPerkUsages] = useState<PerkUsage[]>([]);
 
   const redemptionsQuery = useQuery({
     queryKey: ["membership-redemptions"],
@@ -189,6 +243,18 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       setMembershipRedemptions(redemptionsQuery.data);
     }
   }, [redemptionsQuery.data]);
+
+  const perkUsagesQuery = useQuery({
+    queryKey: ["perk-usages"],
+    queryFn: fetchPerkUsages,
+    refetchInterval: 15000,
+  });
+
+  useEffect(() => {
+    if (perkUsagesQuery.data) {
+      setPerkUsages(perkUsagesQuery.data);
+    }
+  }, [perkUsagesQuery.data]);
 
   const membersQuery = useQuery({
     queryKey: ["members-store"],
@@ -720,6 +786,118 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     [membershipRedemptions, redeemMembershipRewardMutation, hasMemberRedeemedAnyRewardToday],
   );
 
+  const markPerkUsedMutation = useMutation({
+    mutationFn: async ({ memberId, perkId }: { memberId: string; perkId: string }) => {
+      console.log("[MembersStore] Marking perk", perkId, "as used for member", memberId);
+      const usedAt = new Date().toISOString();
+      const { error } = await supabase.from("perk_usages").insert({
+        member_id: memberId,
+        perk_id: perkId,
+        used_at: usedAt,
+      });
+
+      if (error) {
+        console.error("[MembersStore] Supabase perk_usages insert error:", error.message);
+        const updated = [...perkUsages, { memberId, perkId, usedAt }];
+        await AsyncStorage.setItem(PERK_USAGES_KEY, JSON.stringify(updated));
+        console.log("[MembersStore] Saved perk usage to local fallback");
+      } else {
+        console.log("[MembersStore] Saved perk usage to Supabase");
+      }
+
+      return { memberId, perkId, usedAt };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["perk-usages"] });
+    },
+  });
+
+  const unmarkPerkUsedMutation = useMutation({
+    mutationFn: async ({ memberId, perkId }: { memberId: string; perkId: string }) => {
+      console.log("[MembersStore] Unmarking perk", perkId, "for member", memberId);
+      const todayStr = getTodayStr();
+      const startOfDay = `${todayStr}T00:00:00.000Z`;
+      const endOfDay = `${todayStr}T23:59:59.999Z`;
+
+      const { error } = await supabase
+        .from("perk_usages")
+        .delete()
+        .eq("member_id", memberId)
+        .eq("perk_id", perkId)
+        .gte("used_at", startOfDay)
+        .lte("used_at", endOfDay);
+
+      if (error) {
+        console.error("[MembersStore] Supabase perk_usages delete error:", error.message);
+        const updated = perkUsages.filter(
+          (p) => !(p.memberId === memberId && p.perkId === perkId)
+        );
+        await AsyncStorage.setItem(PERK_USAGES_KEY, JSON.stringify(updated));
+      } else {
+        console.log("[MembersStore] Deleted perk usage from Supabase");
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["perk-usages"] });
+    },
+  });
+
+  const hasMemberUsedPerkToday = useCallback(
+    (memberId: string, perkId: string): boolean => {
+      const todayStr = getTodayStr();
+      return perkUsages.some((p) => {
+        if (p.memberId !== memberId || p.perkId !== perkId) return false;
+        const d = new Date(p.usedAt);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return dStr === todayStr;
+      });
+    },
+    [perkUsages],
+  );
+
+  const getMemberPerkUsagesToday = useCallback(
+    (memberId: string): PerkUsage[] => {
+      const todayStr = getTodayStr();
+      return perkUsages.filter((p) => {
+        if (p.memberId !== memberId) return false;
+        const d = new Date(p.usedAt);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return dStr === todayStr;
+      });
+    },
+    [perkUsages],
+  );
+
+  const markPerkUsed = useCallback(
+    (memberId: string, perkId: string) => {
+      const already = hasMemberUsedPerkToday(memberId, perkId);
+      if (already) {
+        console.log("[MembersStore] Perk already used today");
+        return;
+      }
+      const optimistic: PerkUsage = {
+        memberId,
+        perkId,
+        usedAt: new Date().toISOString(),
+      };
+      setPerkUsages((prev) => [...prev, optimistic]);
+      markPerkUsedMutation.mutate({ memberId, perkId });
+      console.log("[MembersStore] Marked perk", perkId, "as used for", memberId);
+    },
+    [hasMemberUsedPerkToday, markPerkUsedMutation],
+  );
+
+  const unmarkPerkUsed = useCallback(
+    (memberId: string, perkId: string) => {
+      setPerkUsages((prev) =>
+        prev.filter((p) => !(p.memberId === memberId && p.perkId === perkId))
+      );
+      unmarkPerkUsedMutation.mutate({ memberId, perkId });
+      console.log("[MembersStore] Unmarked perk", perkId, "for", memberId);
+    },
+    [unmarkPerkUsedMutation],
+  );
+
   const hasMemberRedeemedReward = useCallback(
     (memberId: string, rewardId: string): boolean => {
       return membershipRedemptions.some(
@@ -754,6 +932,11 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       hasMemberRedeemedReward,
       hasMemberRedeemedAnyRewardToday,
       getMemberRedemptions,
+      perkUsages,
+      markPerkUsed,
+      unmarkPerkUsed,
+      hasMemberUsedPerkToday,
+      getMemberPerkUsagesToday,
     }),
     [
       members,
@@ -772,6 +955,11 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       hasMemberRedeemedReward,
       hasMemberRedeemedAnyRewardToday,
       getMemberRedemptions,
+      perkUsages,
+      markPerkUsed,
+      unmarkPerkUsed,
+      hasMemberUsedPerkToday,
+      getMemberPerkUsagesToday,
     ],
   );
 });
