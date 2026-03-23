@@ -126,7 +126,7 @@ export default function IndexScreen() {
           </View>
           <View style={styles.featureRow}>
             <Gift color="#F7C58B" size={18} />
-            <Text style={styles.featureText}>Member-Only Perks: Exclusive deals and special offers for members throughout the year</Text>
+            <Text style={styles.featureText}>Exclusive deals and special offers for members throughout the year</Text>
           </View>
         </Panel>
       </LoyaltyScreen>
