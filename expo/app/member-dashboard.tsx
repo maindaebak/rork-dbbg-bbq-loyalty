@@ -104,7 +104,7 @@ export default function MemberDashboardScreen() {
             <View style={styles.welcomeTextWrap}>
               <Text style={styles.welcomeLine1}>Welcome to</Text>
               <Text style={styles.welcomeLine2}>Dae Bak Bon Ga,</Text>
-              <Text style={styles.welcomeLine3}>{member.fullName.split(" ")[0]}</Text>
+              <Text style={styles.welcomeLine3}>{member.fullName}</Text>
             </View>
           ) : "Member dashboard"
         }
