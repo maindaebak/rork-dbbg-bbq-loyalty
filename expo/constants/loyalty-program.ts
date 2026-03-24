@@ -77,13 +77,16 @@ Dae Bak Bon Ga reserves the right to modify these terms at any time. Members wil
 9. LIMITATION OF LIABILITY
 Dae Bak Bon Ga is not responsible for any technical issues that may affect point balances or reward redemption. The restaurant's decision on all loyalty program matters is final.
 
-10. MARKETING COMMUNICATIONS
-By signing up for the Dae Bak Bon Ga Loyalty Program, you agree to receive promotional text messages including special deals, birthday rewards, and points expiration reminders. You may opt out of marketing messages at any time through your profile settings in the app. Opting out of marketing messages will not affect your membership status or earned rewards.
+10. MARKETING COMMUNICATIONS (SMS)
+By signing up for the Dae Bak Bon Ga Loyalty Program, you are automatically opted-in to receive promotional text messages (SMS) including special deals, birthday rewards, points expiration reminders, and other marketing communications. No additional action is required to start receiving SMS messages upon registration. You may opt out of SMS marketing at any time through your profile settings in the app or by replying "STOP" to any message. Opting out of SMS marketing will not affect your membership status, earned points, or rewards.
 
 11. PUSH NOTIFICATIONS
-Upon signing up, your device will be automatically registered to receive push notifications from Dae Bak Bon Ga. Push notifications may include promotional offers, loyalty program updates, tier status changes, points reminders, and other marketing communications. You may opt out of push notifications at any time through the Member Options section in the app. Opting out of push notifications will not affect your membership status, earned points, or rewards. Dae Bak Bon Ga reserves the right to send essential account-related notifications (e.g., security alerts) regardless of your push notification preferences.
+Upon signing up, your device is automatically opted-in and registered to receive push notifications from Dae Bak Bon Ga. Push notifications may include promotional offers, loyalty program updates, tier status changes, points reminders, and other marketing communications. No additional action is required to start receiving push notifications upon registration. You may opt out of push notifications at any time through the Member Options section in the app. Opting out of push notifications will not affect your membership status, earned points, or rewards. Dae Bak Bon Ga reserves the right to send essential account-related notifications (e.g., security alerts) regardless of your push notification preferences.
 
-By signing up, you acknowledge that you have read, understood, and agree to these terms and conditions.`;
+12. AUTOMATIC OPT-IN ACKNOWLEDGMENT
+By creating a Dae Bak Bon Ga Loyalty Program account, you acknowledge and agree that both SMS marketing communications and push notifications are automatically enabled upon registration. You understand that you may opt out of either or both communication channels at any time without affecting your membership benefits.
+
+By signing up, you acknowledge that you have read, understood, and agree to these terms and conditions, including the automatic opt-in for SMS and push notification communications.`;
 
 const DEFAULT_PRIVACY_POLICY = `Privacy Policy
 Last Updated: March 21, 2026
@@ -104,29 +107,33 @@ We use your data to:
 
 Manage your loyalty points and rewards.
 
-Send you SMS notifications regarding your points or special promotions (if you opted-in).
+Send you SMS notifications regarding your points, special promotions, and marketing communications. By signing up, you are automatically opted-in to receive SMS messages.
 
 Send automated "Happy Birthday" messages and offers.
 
 Improve our restaurant services and app experience.
 
 3. SMS Marketing & Communication
-By providing your phone number and opting in, you consent to receive text messages from us.
+By signing up for the loyalty program, you are automatically opted-in to receive text messages from Dae Bak Bon Ga. You consent to receive SMS communications including promotional offers, points updates, and marketing messages.
+
+Automatic Opt-In: Upon registration, your phone number is automatically enrolled to receive SMS communications. No additional action is required to start receiving messages.
 
 Frequency: Message frequency varies based on your activity (e.g., points earned) and monthly promotions.
 
-Opt-Out: You can opt-out of marketing texts at any time by updating your profile settings in the app or replying "STOP" to any mobile message.
+Opt-Out: You can opt-out of SMS marketing at any time by updating your profile settings in the app or replying "STOP" to any mobile message. Opting out of SMS will not affect your membership status, points balance, or ability to redeem rewards.
 
 Costs: Standard message and data rates may apply.
 
 4. Push Notifications
-Upon registration, your device is automatically enrolled to receive push notifications. These notifications may include:
+Upon registration, your device is automatically opted-in and enrolled to receive push notifications from Dae Bak Bon Ga. No additional action is required to start receiving push notifications. These notifications may include:
 
 Promotional offers and special deals.
 
 Loyalty program updates (points earned, tier changes, reward availability).
 
 Marketing campaigns and recurring promotional messages sent by Dae Bak Bon Ga.
+
+Automatic Opt-In: Both SMS and push notifications are automatically enabled when you sign up for the loyalty program. You do not need to separately opt-in for either communication channel.
 
 Opt-Out: You can disable push notifications at any time through the Member Options section within the app. Disabling push notifications will not affect your loyalty membership, points balance, or ability to redeem rewards.
 
@@ -155,7 +162,7 @@ Request the correction or deletion of your data.
 
 Withdraw consent for marketing communications at any time.
 
-Opt out of push notifications and SMS marketing independently.
+Opt out of push notifications and SMS marketing independently at any time, despite both being automatically opted-in upon registration.
 
 8. Contact Us
 If you have any questions about this Privacy Policy, please contact us at:
