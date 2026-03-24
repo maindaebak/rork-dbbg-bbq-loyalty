@@ -131,10 +131,11 @@ export function PhoneInput({
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={pickerStyles.keyboardAvoid}
         >
-          <Pressable
-            onPress={closePicker}
-            style={pickerStyles.overlay}
-          >
+          <View style={pickerStyles.overlay}>
+            <Pressable
+              onPress={closePicker}
+              style={pickerStyles.overlayBackdrop}
+            />
             <View style={[pickerStyles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
               <View style={pickerStyles.handle} />
               <Text style={pickerStyles.title}>Select country code</Text>
@@ -175,7 +176,7 @@ export function PhoneInput({
                 windowSize={7}
               />
             </View>
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -277,9 +278,12 @@ const pickerStyles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    backgroundColor: "rgba(0,0,0,0.6)",
     flex: 1,
     justifyContent: "flex-end",
+  },
+  overlayBackdrop: {
+    backgroundColor: "rgba(0,0,0,0.6)",
+    ...StyleSheet.absoluteFillObject,
   },
   searchRow: {
     alignItems: "center",
