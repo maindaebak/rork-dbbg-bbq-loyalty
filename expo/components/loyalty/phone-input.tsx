@@ -156,25 +156,46 @@ export function PhoneInput({
                   </Pressable>
                 )}
               </View>
-              <FlatList
-                ref={listRef}
-                data={filteredCodes}
-                keyExtractor={keyExtractor}
-                renderItem={renderItem}
-                showsVerticalScrollIndicator={false}
-                style={pickerStyles.list}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="on-drag"
-                removeClippedSubviews={Platform.OS !== "web"}
-                getItemLayout={(_data, index) => ({
-                  length: ITEM_HEIGHT,
-                  offset: ITEM_HEIGHT * index,
-                  index,
-                })}
-                initialNumToRender={15}
-                maxToRenderPerBatch={20}
-                windowSize={7}
-              />
+              {Platform.OS === "web" ? (
+                <View style={pickerStyles.scrollList}>
+                  {filteredCodes.map((item) => (
+                    <Pressable
+                      key={`${item.code}-${item.dial}`}
+                      onPress={() => handleSelect(item)}
+                      style={({ pressed }) => [
+                        pickerStyles.item,
+                        pressed && pickerStyles.itemPressed,
+                        item.code === countryCode.code && pickerStyles.itemSelected,
+                      ]}
+                      testID={`${testID}-country-${item.code}`}
+                    >
+                      <Text style={pickerStyles.itemFlag}>{item.flag}</Text>
+                      <Text style={pickerStyles.itemCode}>{item.code}</Text>
+                      <Text style={pickerStyles.itemDial}>{item.dial}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <FlatList
+                  ref={listRef}
+                  data={filteredCodes}
+                  keyExtractor={keyExtractor}
+                  renderItem={renderItem}
+                  showsVerticalScrollIndicator={false}
+                  style={pickerStyles.list}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
+                  removeClippedSubviews
+                  getItemLayout={(_data, index) => ({
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
+                  })}
+                  initialNumToRender={15}
+                  maxToRenderPerBatch={20}
+                  windowSize={7}
+                />
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -276,6 +297,10 @@ const pickerStyles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  scrollList: {
+    flex: 1,
+    overflow: "scroll" as any,
   },
   overlay: {
     flex: 1,
