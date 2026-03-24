@@ -178,7 +178,8 @@ export default function MemberSignupScreen() {
       setVerificationStatus("verified");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      const member: MemberProfile = {
+      console.log("[Signup] Creating member in Supabase...");
+      const registeredMember = await registerMember({
         id: `member-${Date.now()}`,
         fullName: `${form.firstName.trim()} ${form.lastName.trim()}`,
         phone: fullPhone,
@@ -187,20 +188,20 @@ export default function MemberSignupScreen() {
         createdAt: new Date().toISOString(),
         marketingOptIn: form.marketingOptIn,
         pushNotificationOptIn: true,
-      };
-
-      console.log("[Signup] Creating member:", member.fullName);
-      registerMember({
-        id: member.id,
-        fullName: member.fullName,
-        phone: member.phone,
-        birthdate: member.birthdate,
-        birthYear: member.birthYear,
-        createdAt: member.createdAt,
-        marketingOptIn: member.marketingOptIn,
-        pushNotificationOptIn: member.pushNotificationOptIn,
         password: form.password,
       });
+      console.log("[Signup] Member registered with id:", registeredMember.id);
+
+      const member: MemberProfile = {
+        id: registeredMember.id,
+        fullName: registeredMember.fullName,
+        phone: registeredMember.phone,
+        birthdate: registeredMember.birthdate,
+        birthYear: registeredMember.birthYear,
+        createdAt: registeredMember.createdAt,
+        marketingOptIn: registeredMember.marketingOptIn,
+        pushNotificationOptIn: registeredMember.pushNotificationOptIn,
+      };
       login(member);
 
       const setupPush = async () => {
@@ -220,9 +221,9 @@ export default function MemberSignupScreen() {
       router.replace("/member-dashboard");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Please try again.";
-      console.error("[Signup] Verify error:", msg);
+      console.error("[Signup] Verify/Register error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Verification failed", msg);
+      Alert.alert("Sign up failed", `Could not create your account: ${msg}`);
     } finally {
       setIsVerifying(false);
     }

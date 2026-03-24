@@ -328,7 +328,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
   });
 
   const registerMember = useCallback(
-    (member: Omit<StoredMember, "points" | "pointsHistory">) => {
+    async (member: Omit<StoredMember, "points" | "pointsHistory">): Promise<StoredMember> => {
       const existing = members.find(
         (m) => m.phone.replace(/\D/g, "") === member.phone.replace(/\D/g, "")
       );
@@ -336,10 +336,11 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
         console.log("[MembersStore] Member already exists locally");
         return existing;
       }
-      registerMemberMutation.mutate(member);
-      const optimistic: StoredMember = { ...member, points: 0, pointsHistory: [], marketingOptIn: member.marketingOptIn ?? false, pushNotificationOptIn: member.pushNotificationOptIn ?? true };
-      setMembers((prev) => [...prev, optimistic]);
-      return optimistic;
+
+      console.log("[MembersStore] Registering member (awaiting Supabase):", member.fullName);
+      const result = await registerMemberMutation.mutateAsync(member);
+      console.log("[MembersStore] Register mutation completed, member id:", result.id);
+      return result;
     },
     [members, registerMemberMutation],
   );
