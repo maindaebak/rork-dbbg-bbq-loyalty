@@ -299,7 +299,8 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
         birthdate: member.birthdate || null,
         birth_year: member.birthYear || null,
         auth_id: authUser?.user?.id ?? null,
-        marketing_opt_in: member.marketingOptIn ?? false,
+        marketing_opt_in: member.marketingOptIn ?? true,
+        push_notifications_enabled: member.pushNotificationOptIn ?? true,
         password: member.password || null,
       };
       console.log("[MembersStore] Insert payload:", JSON.stringify(insertPayload));
