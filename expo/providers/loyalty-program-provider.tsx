@@ -12,7 +12,7 @@ import {
   type MembershipReward,
   type VisitBadge,
 } from "@/constants/loyalty-program";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const STORAGE_KEY = "loyalty-program-settings";
 
@@ -93,7 +93,22 @@ function dbSettingsToLocal(db: DbLoyaltySettings): LoyaltyProgramSettings {
   };
 }
 
+async function loadFromLocalStorage(): Promise<LoyaltyProgramSettings> {
+  try {
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!stored) return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
+    return sanitizeSettings(JSON.parse(stored) as LoyaltyProgramSettings);
+  } catch {
+    return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
+  }
+}
+
 async function fetchSettings(): Promise<LoyaltyProgramSettings> {
+  if (!isSupabaseConfigured()) {
+    console.log("[LoyaltyProgram] Supabase not configured, using local storage");
+    return loadFromLocalStorage();
+  }
+
   try {
     console.log("[LoyaltyProgram] Fetching settings from Supabase...");
     const { data, error } = await supabase
@@ -103,7 +118,7 @@ async function fetchSettings(): Promise<LoyaltyProgramSettings> {
       .maybeSingle();
 
     if (error) {
-      console.error("[LoyaltyProgram] Supabase error:", error.message);
+      console.warn("[LoyaltyProgram] Supabase query error:", error.message ?? JSON.stringify(error));
       throw error;
     }
 
@@ -116,14 +131,9 @@ async function fetchSettings(): Promise<LoyaltyProgramSettings> {
     console.log("[LoyaltyProgram] No settings in Supabase, using defaults");
     return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
   } catch (err) {
-    console.error("[LoyaltyProgram] Failed to fetch from Supabase, falling back to local:", err);
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!stored) return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
-    try {
-      return sanitizeSettings(JSON.parse(stored) as LoyaltyProgramSettings);
-    } catch {
-      return DEFAULT_LOYALTY_PROGRAM_SETTINGS;
-    }
+    const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+    console.warn("[LoyaltyProgram] Failed to fetch from Supabase, falling back to local:", errMsg);
+    return loadFromLocalStorage();
   }
 }
 
@@ -139,30 +149,41 @@ export const [LoyaltyProgramProvider, useLoyaltyProgram] = createContextHook(() 
   const saveSettingsMutation = useMutation({
     mutationFn: async (nextSettings: LoyaltyProgramSettings) => {
       const sanitized = sanitizeSettings(nextSettings);
-      console.log("[LoyaltyProgram] Saving settings to Supabase...");
 
-      const { error } = await supabase
-        .from("loyalty_settings")
-        .upsert({
-          id: 1,
-          points_per_dollar: sanitized.pointsPerDollar,
-          tiers: sanitized.tiers as unknown as Record<string, unknown>[],
-          rewards: sanitized.rewards as unknown as Record<string, unknown>[],
-          membership_rewards: sanitized.membershipRewards as unknown as Record<string, unknown>[],
-          member_perks: sanitized.memberPerks as unknown as Record<string, unknown>[],
-          terms_and_conditions: sanitized.termsAndConditions,
-          privacy_policy: sanitized.privacyPolicy,
-          tier_bonus_enabled: sanitized.tierBonusEnabled,
-          visit_badges: sanitized.visitBadges as unknown as Record<string, unknown>[],
-          updated_at: new Date().toISOString(),
-        });
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
 
-      if (error) {
-        console.error("[LoyaltyProgram] Supabase save error:", error.message);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-        console.log("[LoyaltyProgram] Saved to local storage as fallback");
-      } else {
-        console.log("[LoyaltyProgram] Saved to Supabase");
+      if (!isSupabaseConfigured()) {
+        console.log("[LoyaltyProgram] Supabase not configured, saved to local storage only");
+        return sanitized;
+      }
+
+      try {
+        console.log("[LoyaltyProgram] Saving settings to Supabase...");
+        const { error } = await supabase
+          .from("loyalty_settings")
+          .upsert({
+            id: 1,
+            points_per_dollar: sanitized.pointsPerDollar,
+            tiers: sanitized.tiers as unknown as Record<string, unknown>[],
+            rewards: sanitized.rewards as unknown as Record<string, unknown>[],
+            membership_rewards: sanitized.membershipRewards as unknown as Record<string, unknown>[],
+            member_perks: sanitized.memberPerks as unknown as Record<string, unknown>[],
+            terms_and_conditions: sanitized.termsAndConditions,
+            privacy_policy: sanitized.privacyPolicy,
+            tier_bonus_enabled: sanitized.tierBonusEnabled,
+            visit_badges: sanitized.visitBadges as unknown as Record<string, unknown>[],
+            updated_at: new Date().toISOString(),
+          });
+
+        if (error) {
+          console.warn("[LoyaltyProgram] Supabase save error:", error.message ?? JSON.stringify(error));
+          console.log("[LoyaltyProgram] Already saved to local storage as fallback");
+        } else {
+          console.log("[LoyaltyProgram] Saved to Supabase");
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+        console.warn("[LoyaltyProgram] Supabase save failed, using local fallback:", errMsg);
       }
 
       return sanitized;

@@ -13,7 +13,10 @@ function getSupabaseKey(): string {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return _isConfigured;
+  if (_isConfigured) return true;
+  const url = getSupabaseUrl();
+  const key = getSupabaseKey();
+  return Boolean(url && key && !url.includes("placeholder"));
 }
 
 function getSupabaseClient(): SupabaseClient {
