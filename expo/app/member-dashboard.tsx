@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Clock, Flame, Gift, Info, LogOut, Star, User } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Platform, Pressable, StyleSheet, Text, UIManager, View, LayoutAnimation } from "react-native";
+import { Alert, Linking, Platform, Pressable, StyleSheet, Text, UIManager, View, LayoutAnimation } from "react-native";
 
 import { CollapsiblePanel, LoyaltyScreen } from "@/components/loyalty/ui";
 import { useAuth } from "@/providers/auth-provider";
@@ -11,7 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, Zap, Beer, Cake, Sparkles, Tag, Percent, PartyPopper } from "lucide-react-native";
+import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, Zap, Beer, Cake, Sparkles, Tag, Percent, PartyPopper, Globe, UtensilsCrossed, CalendarCheck, MessageCircle } from "lucide-react-native";
 import type { MemberPerk } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -117,6 +117,40 @@ export default function MemberDashboardScreen() {
           <View style={styles.logoSection} testID="member-dashboard-logo">
             <View style={styles.logoContainer}>
               <Image contentFit="contain" source={require("@/assets/images/DBBG_LOGO.png")} style={styles.logoImage} />
+            </View>
+            <View style={styles.quickLinksRow}>
+              <Pressable
+                onPress={() => Linking.openURL("https://www.daebakbonga.com")}
+                style={({ pressed }) => [styles.quickLinkButton, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
+                testID="link-website"
+              >
+                <Globe color="#1A120E" size={16} />
+                <Text style={styles.quickLinkText}>Website</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => Linking.openURL("https://www.daebakbonga.com/dbbgmenu")}
+                style={({ pressed }) => [styles.quickLinkButton, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
+                testID="link-menu"
+              >
+                <UtensilsCrossed color="#1A120E" size={16} />
+                <Text style={styles.quickLinkText}>Menu</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => Linking.openURL("https://www.daebakbonga.com/reservations")}
+                style={({ pressed }) => [styles.quickLinkButton, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
+                testID="link-reservations"
+              >
+                <CalendarCheck color="#1A120E" size={16} />
+                <Text style={styles.quickLinkText}>Reservations</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => Linking.openURL("https://www.daebakbonga.com/contact-us")}
+                style={({ pressed }) => [styles.quickLinkButton, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
+                testID="link-contact"
+              >
+                <MessageCircle color="#1A120E" size={16} />
+                <Text style={styles.quickLinkText}>Contact Us</Text>
+              </Pressable>
             </View>
           </View>
         }
@@ -863,6 +897,27 @@ const styles = StyleSheet.create({
   logoImage: {
     height: 76,
     width: 76,
+  },
+  quickLinksRow: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 8,
+    justifyContent: "center" as const,
+    marginTop: 12,
+  },
+  quickLinkButton: {
+    alignItems: "center" as const,
+    backgroundColor: "#F7C58B",
+    borderRadius: 12,
+    flexDirection: "row" as const,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  quickLinkText: {
+    color: "#1A120E",
+    fontSize: 12,
+    fontWeight: "700" as const,
   },
 
   tierRoadmapContainer: {
