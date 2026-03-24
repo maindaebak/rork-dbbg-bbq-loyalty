@@ -41,6 +41,7 @@ function RootLayoutNav() {
       <Stack.Screen name="rewards" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="membership-rewards" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="terms-conditions" options={{ headerBackTitle: "Back" }} />
+      <Stack.Screen name="forgot-password" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="privacy-policy" options={{ headerBackTitle: "Back" }} />
       <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
     </Stack>

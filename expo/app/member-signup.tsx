@@ -24,6 +24,8 @@ interface SignupFormState {
   birthMonth: string;
   birthDay: string;
   birthYear: string;
+  password: string;
+  confirmPassword: string;
   code: string;
   agreedToTerms: boolean;
   marketingOptIn: boolean;
@@ -38,6 +40,8 @@ const INITIAL_FORM: SignupFormState = {
   birthMonth: "",
   birthDay: "",
   birthYear: "",
+  password: "",
+  confirmPassword: "",
   code: "",
   agreedToTerms: false,
   marketingOptIn: true,
@@ -80,6 +84,16 @@ export default function MemberSignupScreen() {
     return `${countryCode.dial}${digits}`;
   }, [countryCode.dial, form.phoneNumber]);
 
+  const passwordError = useMemo<string>(() => {
+    if (form.password.length > 0 && form.password.length < 6) {
+      return "Password must be at least 6 characters";
+    }
+    if (form.confirmPassword.length > 0 && form.password !== form.confirmPassword) {
+      return "Passwords do not match";
+    }
+    return "";
+  }, [form.password, form.confirmPassword]);
+
   const canSendCode = useMemo<boolean>(() => {
     const phoneDigits = form.phoneNumber.replace(/[^\d]/g, "");
     return Boolean(
@@ -89,15 +103,25 @@ export default function MemberSignupScreen() {
         isValidBirthMonth(form.birthMonth) &&
         isValidBirthDay(form.birthDay) &&
         isValidBirthYear(form.birthYear) &&
+        form.password.length >= 6 &&
+        form.password === form.confirmPassword &&
         form.agreedToTerms,
     );
-  }, [form.birthYear, form.birthMonth, form.birthDay, form.firstName, form.lastName, form.phoneNumber, form.agreedToTerms]);
+  }, [form.birthYear, form.birthMonth, form.birthDay, form.firstName, form.lastName, form.phoneNumber, form.password, form.confirmPassword, form.agreedToTerms]);
 
   const canVerify = useMemo<boolean>(() => form.code.trim().length === 6, [form.code]);
 
   const handleSendCode = useCallback(async () => {
     if (!form.agreedToTerms) {
       Alert.alert("Terms & Conditions", "You must agree to the Terms & Conditions before signing up.");
+      return;
+    }
+    if (form.password.length < 6) {
+      Alert.alert("Password too short", "Password must be at least 6 characters.");
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      Alert.alert("Passwords don't match", "Please make sure your passwords match.");
       return;
     }
     if (!canSendCode) {
@@ -130,7 +154,7 @@ export default function MemberSignupScreen() {
     } finally {
       setIsSending(false);
     }
-  }, [canSendCode, fullPhone, form.agreedToTerms]);
+  }, [canSendCode, fullPhone, form.agreedToTerms, form.password, form.confirmPassword]);
 
   const handleVerify = useCallback(async () => {
     if (!canVerify) {
@@ -166,7 +190,17 @@ export default function MemberSignupScreen() {
       };
 
       console.log("[Signup] Creating member:", member.fullName);
-      registerMember(member);
+      registerMember({
+        id: member.id,
+        fullName: member.fullName,
+        phone: member.phone,
+        birthdate: member.birthdate,
+        birthYear: member.birthYear,
+        createdAt: member.createdAt,
+        marketingOptIn: member.marketingOptIn,
+        pushNotificationOptIn: member.pushNotificationOptIn,
+        password: form.password,
+      });
       login(member);
 
       const setupPush = async () => {
@@ -277,6 +311,26 @@ export default function MemberSignupScreen() {
           <Text style={styles.birthdateNote}>
             Please use your real name and birthdate that is listed on your government issued ID for security and identification verification purposes.
           </Text>
+
+          <InputField
+            label="Password"
+            onChangeText={(value) => updateField("password", value)}
+            placeholder="At least 6 characters"
+            secureTextEntry
+            testID="signup-password-input"
+            value={form.password}
+          />
+          <InputField
+            label="Confirm password"
+            onChangeText={(value) => updateField("confirmPassword", value)}
+            placeholder="Re-enter your password"
+            secureTextEntry
+            testID="signup-confirm-password-input"
+            value={form.confirmPassword}
+          />
+          {passwordError ? (
+            <Text style={styles.passwordError}>{passwordError}</Text>
+          ) : null}
 
           <Pressable
             onPress={() => setForm((prev) => ({ ...prev, agreedToTerms: !prev.agreedToTerms }))}
@@ -464,5 +518,10 @@ const styles = StyleSheet.create({
   },
   legalLinkHalf: {
     flex: 1,
+  },
+  passwordError: {
+    color: "#E57373",
+    fontSize: 13,
+    marginTop: -4,
   },
 });

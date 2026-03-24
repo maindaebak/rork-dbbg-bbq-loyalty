@@ -1,8 +1,8 @@
 import * as Haptics from "expo-haptics";
 import { Stack, router } from "expo-router";
-import { CheckCircle2, LogIn, MessageSquareMore, Phone } from "lucide-react-native";
+import { KeyRound, LogIn, Phone, UserPlus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   ActionButton,
@@ -12,135 +12,80 @@ import {
   SectionTitle,
 } from "@/components/loyalty/ui";
 import { PhoneInput, DEFAULT_COUNTRY_CODE, type CountryCode } from "@/components/loyalty/phone-input";
-import { loginWithPhone, verifyPhoneOtp } from "@/lib/api";
 import { useAuth, type MemberProfile } from "@/providers/auth-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
 
-type VerificationStatus = "idle" | "sending" | "sent" | "verifying";
-
 export default function MemberLoginScreen() {
   const { login } = useAuth();
-  const { findMemberByPhone } = useMembersStore();
+  const { loginWithPassword } = useMembersStore();
   const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_COUNTRY_CODE);
-  const [code, setCode] = useState<string>("");
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("idle");
-  const [isSending, setIsSending] = useState<boolean>(false);
-  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [password, setPassword] = useState<string>("");
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
   const fullPhone = useMemo(() => {
     const digits = phoneNumber.replace(/[^\d]/g, "");
     return `${countryCode.dial}${digits}`;
   }, [countryCode.dial, phoneNumber]);
 
-  const canSendCode = useMemo<boolean>(
-    () => phoneNumber.replace(/[^\d]/g, "").length >= 7,
-    [phoneNumber],
+  const canLogin = useMemo<boolean>(
+    () => phoneNumber.replace(/[^\d]/g, "").length >= 7 && password.length >= 6,
+    [phoneNumber, password],
   );
 
-  const canVerify = useMemo<boolean>(() => code.trim().length === 6, [code]);
-
-  const handleSendCode = useCallback(async () => {
-    if (!canSendCode) {
-      Alert.alert("Missing info", "Please enter your phone number.");
+  const handleLogin = useCallback(async () => {
+    if (!canLogin) {
+      Alert.alert("Missing info", "Please enter your phone number and password.");
       return;
     }
 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setVerificationStatus("sending");
-    setIsSending(true);
+    setIsLoggingIn(true);
 
     try {
       const phoneToSend = fullPhone;
-      console.log("[Login] Sending OTP to:", phoneToSend);
-      const result = await loginWithPhone(phoneToSend);
-      console.log("[Login] OTP result:", JSON.stringify(result));
+      console.log("[Login] Attempting password login for:", phoneToSend);
+      const result = await loginWithPassword(phoneToSend, password);
 
-      if (!result.success) {
-        throw new Error(result.error ?? "Failed to send verification code.");
-      }
-
-      setVerificationStatus("sent");
-      Alert.alert("Code sent", "We texted a 6-digit verification code to your phone.");
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Login] Send OTP error:", msg);
-      setVerificationStatus("idle");
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Failed to send code", msg);
-    } finally {
-      setIsSending(false);
-    }
-  }, [canSendCode, fullPhone]);
-
-  const handleVerify = useCallback(async () => {
-    if (!canVerify) {
-      Alert.alert("Invalid code", "Enter the 6-digit verification code from your text message.");
-      return;
-    }
-
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsVerifying(true);
-    setVerificationStatus("verifying");
-
-    try {
-      const phoneToSend = fullPhone;
-      console.log("[Login] Verifying OTP for:", phoneToSend);
-      const result = await verifyPhoneOtp(phoneToSend, code);
-      console.log("[Login] Verify result:", JSON.stringify(result));
-
-      if (!result.success) {
+      if (!result.success || !result.member) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Verification failed", result.error ?? "The code you entered is incorrect. Please try again.");
-        setVerificationStatus("sent");
+        Alert.alert("Login failed", result.error ?? "Invalid phone number or password.");
         return;
       }
 
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      const existingMember = findMemberByPhone(fullPhone);
-      const member: MemberProfile = existingMember
-        ? {
-            id: existingMember.id,
-            fullName: existingMember.fullName,
-            phone: existingMember.phone,
-            birthdate: existingMember.birthdate,
-            birthYear: existingMember.birthYear,
-            createdAt: existingMember.createdAt,
-            marketingOptIn: existingMember.marketingOptIn ?? false,
-            pushNotificationOptIn: existingMember.pushNotificationOptIn ?? true,
-          }
-        : {
-            id: `member-${Date.now()}`,
-            fullName: "Returning Member",
-            phone: fullPhone,
-            birthdate: "",
-            birthYear: "",
-            createdAt: new Date().toISOString(),
-            marketingOptIn: false,
-            pushNotificationOptIn: true,
-          };
+      const storedMember = result.member;
+      const member: MemberProfile = {
+        id: storedMember.id,
+        fullName: storedMember.fullName,
+        phone: storedMember.phone,
+        birthdate: storedMember.birthdate,
+        birthYear: storedMember.birthYear,
+        createdAt: storedMember.createdAt,
+        marketingOptIn: storedMember.marketingOptIn ?? false,
+        pushNotificationOptIn: storedMember.pushNotificationOptIn ?? true,
+      };
 
       console.log("[Login] Member logged in:", member.fullName);
       login(member);
       router.replace("/member-dashboard");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Please try again.";
-      console.error("[Login] Verify error:", msg);
+      console.error("[Login] Login error:", msg);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Verification failed", msg);
-      setVerificationStatus("sent");
+      Alert.alert("Login failed", msg);
     } finally {
-      setIsVerifying(false);
+      setIsLoggingIn(false);
     }
-  }, [canVerify, code, findMemberByPhone, fullPhone, login]);
+  }, [canLogin, fullPhone, password, login, loginWithPassword]);
 
   return (
     <>
       <Stack.Screen options={{ title: "Log in", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
       <LoyaltyScreen
         eyebrow="Welcome back"
-        subtitle="Log in with your phone number. We'll send you a verification code."
+        subtitle="Log in with your phone number and password."
         title="Log in to your rewards."
         heroRight={
           <View style={styles.statusPill} testID="login-status">
@@ -151,8 +96,8 @@ export default function MemberLoginScreen() {
       >
         <Panel testID="login-phone-panel">
           <SectionTitle
-            copy="Enter the phone number linked to your account. We'll text you a code to verify."
-            title="Your phone number"
+            copy="Enter the phone number and password linked to your account."
+            title="Your credentials"
           />
           <PhoneInput
             countryCode={countryCode}
@@ -162,39 +107,31 @@ export default function MemberLoginScreen() {
             testID="login-phone-input"
           />
 
-          <ActionButton
-            icon={MessageSquareMore}
-            label={
-              isSending
-                ? "Sending code..."
-                : verificationStatus === "sent"
-                  ? "Resend verification code"
-                  : "Send verification code"
-            }
-            onPress={handleSendCode}
-            testID="login-send-code-button"
-            variant="secondary"
+          <InputField
+            label="Password"
+            onChangeText={setPassword}
+            placeholder="Enter your password"
+            secureTextEntry
+            testID="login-password-input"
+            value={password}
           />
 
-          {(verificationStatus === "sent" || verificationStatus === "verifying") && (
-            <>
-              <InputField
-                label="Verification code"
-                keyboardType="numeric"
-                onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="Enter 6-digit code"
-                testID="login-code-input"
-                value={code}
-              />
-              <ActionButton
-                icon={CheckCircle2}
-                label={isVerifying ? "Verifying..." : "Log in"}
-                onPress={handleVerify}
-                testID="login-verify-button"
-                variant="primary"
-              />
-            </>
-          )}
+          <ActionButton
+            icon={LogIn}
+            label={isLoggingIn ? "Logging in..." : "Log in"}
+            onPress={handleLogin}
+            testID="login-submit-button"
+            variant="primary"
+          />
+
+          <Pressable
+            onPress={() => router.push("/forgot-password" as never)}
+            style={({ pressed }) => [styles.forgotButton, pressed && { opacity: 0.7 }]}
+            testID="login-forgot-password-button"
+          >
+            <KeyRound color="#F7C58B" size={16} />
+            <Text style={styles.forgotButtonText}>Forgot Password?</Text>
+          </Pressable>
         </Panel>
 
         <Panel testID="login-signup-redirect-panel">
@@ -203,7 +140,7 @@ export default function MemberLoginScreen() {
             title="New here?"
           />
           <ActionButton
-            icon={LogIn}
+            icon={UserPlus}
             label="Sign up instead"
             onPress={() => router.replace("/member-signup")}
             testID="login-go-signup-button"
@@ -231,5 +168,17 @@ const styles = StyleSheet.create({
     color: "#F8E7D0",
     fontSize: 12,
     fontWeight: "800" as const,
+  },
+  forgotButton: {
+    alignItems: "center",
+    alignSelf: "center",
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  forgotButtonText: {
+    color: "#F7C58B",
+    fontSize: 14,
+    fontWeight: "700" as const,
   },
 });

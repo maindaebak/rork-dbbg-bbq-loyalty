@@ -33,6 +33,7 @@ export interface StoredMember {
   pointsHistory: PointsEntry[];
   marketingOptIn: boolean;
   pushNotificationOptIn: boolean;
+  password?: string;
 }
 
 export type PointsEntryType = "earned" | "redeemed";
@@ -59,6 +60,7 @@ interface DbMember {
   auth_id: string | null;
   marketing_opt_in: boolean | null;
   push_notifications_enabled: boolean | null;
+  password: string | null;
 }
 
 interface DbPointsEntry {
@@ -94,6 +96,7 @@ function dbMemberToStored(member: DbMember, history: DbPointsEntry[]): StoredMem
     })),
     marketingOptIn: member.marketing_opt_in ?? false,
     pushNotificationOptIn: member.push_notifications_enabled ?? true,
+    password: member.password ?? undefined,
   };
 }
 
@@ -294,6 +297,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
           birth_year: member.birthYear || null,
           auth_id: authUser?.user?.id ?? null,
           marketing_opt_in: member.marketingOptIn ?? false,
+          password: member.password || null,
         })
         .select()
         .single();
@@ -621,6 +625,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       if (updates.birthYear !== undefined) dbUpdates.birth_year = updates.birthYear || null;
       if (updates.marketingOptIn !== undefined) dbUpdates.marketing_opt_in = updates.marketingOptIn;
       if (updates.pushNotificationOptIn !== undefined) dbUpdates.push_notifications_enabled = updates.pushNotificationOptIn;
+      if ((updates as Record<string, unknown>).password !== undefined) dbUpdates.password = (updates as Record<string, unknown>).password as string;
 
       const { error } = await supabase
         .from("members")
@@ -1001,6 +1006,96 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     [unmarkPerkUsedMutation],
   );
 
+  const loginWithPassword = useCallback(
+    async (phone: string, password: string): Promise<{ success: boolean; member?: StoredMember; error?: string }> => {
+      const digits = phone.replace(/\D/g, "");
+      console.log("[MembersStore] Attempting password login for phone:", digits);
+
+      const localMember = members.find((m) => m.phone.replace(/\D/g, "") === digits);
+      if (localMember) {
+        if (localMember.password === password) {
+          console.log("[MembersStore] Local password match for", localMember.fullName);
+          return { success: true, member: localMember };
+        }
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("members")
+          .select("*")
+          .eq("phone", phone)
+          .maybeSingle();
+
+        if (error) {
+          console.error("[MembersStore] Supabase login query error:", error.message);
+          if (localMember) {
+            return { success: false, error: "Incorrect password. Please try again." };
+          }
+          return { success: false, error: "Unable to verify credentials. Please try again." };
+        }
+
+        if (!data) {
+          return { success: false, error: "No account found with this phone number. Please sign up first." };
+        }
+
+        const dbMember = data as DbMember;
+        if (dbMember.password !== password) {
+          return { success: false, error: "Incorrect password. Please try again." };
+        }
+
+        const stored = dbMemberToStored(dbMember, []);
+        console.log("[MembersStore] Supabase password match for", stored.fullName);
+        return { success: true, member: stored };
+      } catch (err) {
+        console.error("[MembersStore] Login error:", err);
+        if (localMember) {
+          return { success: false, error: "Incorrect password. Please try again." };
+        }
+        return { success: false, error: "Unable to verify credentials. Please check your connection." };
+      }
+    },
+    [members],
+  );
+
+  const updateMemberPassword = useCallback(
+    async (phone: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+      console.log("[MembersStore] Updating password for phone:", phone);
+      try {
+        const { error } = await supabase
+          .from("members")
+          .update({ password: newPassword })
+          .eq("phone", phone);
+
+        if (error) {
+          console.error("[MembersStore] Password update error:", error.message);
+          setMembers((prev) =>
+            prev.map((m) =>
+              m.phone.replace(/\D/g, "") === phone.replace(/\D/g, "")
+                ? { ...m, password: newPassword }
+                : m
+            )
+          );
+          return { success: true };
+        }
+
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.phone.replace(/\D/g, "") === phone.replace(/\D/g, "")
+              ? { ...m, password: newPassword }
+              : m
+          )
+        );
+        console.log("[MembersStore] Password updated successfully");
+        return { success: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[MembersStore] Password update exception:", msg);
+        return { success: false, error: msg };
+      }
+    },
+    [],
+  );
+
   const unclaimMembershipReward = useCallback(
     (memberId: string, rewardId: string, rewardTitle?: string) => {
       setMembershipRedemptions((prev) =>
@@ -1090,6 +1185,8 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       unmarkPerkUsed,
       hasMemberUsedPerkToday,
       getMemberPerkUsagesToday,
+      loginWithPassword,
+      updateMemberPassword,
     }),
     [
       members,
@@ -1114,6 +1211,8 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       unmarkPerkUsed,
       hasMemberUsedPerkToday,
       getMemberPerkUsagesToday,
+      loginWithPassword,
+      updateMemberPassword,
     ],
   );
 });
