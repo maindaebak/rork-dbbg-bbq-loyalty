@@ -199,7 +199,7 @@ export default function MemberSignupScreen() {
       <Stack.Screen options={{ title: "Sign up", headerTransparent: true, headerTintColor: "#FFF7ED" }} />
       <LoyaltyScreen
         eyebrow="New member"
-        subtitle="Create your rewards account. We'll verify your phone number with a text message."
+        subtitle="Create your rewards account. We'll verify your Canadian phone number with a text message. Only Canadian phone numbers (+1) are accepted for sign up."
         title="Join the Dae Bak family."
         heroRight={
           <View style={styles.statusPill} testID="signup-status">
@@ -212,7 +212,7 @@ export default function MemberSignupScreen() {
       >
         <Panel testID="signup-form-panel">
           <SectionTitle
-            copy="Fill in your details and verify your phone number to get started."
+            copy="Fill in your details and verify your Canadian phone number to get started. Only Canadian phone numbers are eligible for registration and SMS verification."
             title="Create your account"
           />
           <View style={styles.row}>
