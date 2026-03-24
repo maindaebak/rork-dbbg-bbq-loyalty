@@ -51,7 +51,7 @@ export interface LoyaltyProgramSettings {
 const DEFAULT_TERMS = `Terms and Conditions - Dae Bak Bon Ga Loyalty Program
 
 1. ELIGIBILITY
-The Dae Bak Bon Ga Loyalty Program is open to all customers aged 18 and older. Membership is free and requires a valid Canadian phone number (+1 country code). Only Canadian phone numbers are accepted for sign up and to receive SMS text message verifications. International phone numbers are not supported at this time.
+The Dae Bak Bon Ga Loyalty Program is open to all customers aged 18 and older. Membership is free and requires a valid phone number and email address.
 
 2. EARNING POINTS
 Members earn points based on the current points-per-dollar rate set by the restaurant. Points are added by staff at the time of purchase. Points are non-transferable between members.
