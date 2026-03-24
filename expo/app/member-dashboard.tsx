@@ -11,7 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { registerForPushNotifications, savePushToken } from "@/lib/push-notifications";
 import { useLoyaltyProgram } from "@/providers/loyalty-program-provider";
 import { useMembersStore } from "@/providers/members-store-provider";
-import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, Zap, Beer, Cake, Sparkles, Tag, Percent, PartyPopper, Globe, UtensilsCrossed, CalendarCheck, MessageCircle } from "lucide-react-native";
+import { ChevronDown, ChevronUp, ChevronRight, Lock, Check, Crown, Zap, Beer, Cake, Sparkles, Tag, Percent, PartyPopper, Globe, UtensilsCrossed, CalendarCheck, MessageCircle, Instagram } from "lucide-react-native";
 import type { MemberPerk } from "@/constants/loyalty-program";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -150,6 +150,14 @@ export default function MemberDashboardScreen() {
               >
                 <MessageCircle color="#1A120E" size={16} />
                 <Text style={styles.quickLinkText}>Contact Us</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => Linking.openURL("https://www.instagram.com/daebakbonga")}
+                style={({ pressed }) => [styles.quickLinkButton, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
+                testID="link-instagram"
+              >
+                <Instagram color="#1A120E" size={16} />
+                <Text style={styles.quickLinkText}>Instagram</Text>
               </Pressable>
             </View>
           </View>
