@@ -293,7 +293,7 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       const { data: authUser } = await supabase.auth.getUser();
       console.log("[MembersStore] Auth user for insert:", authUser?.user?.id ?? "none");
 
-      const insertPayload = {
+      const basePayload = {
         full_name: member.fullName,
         phone: member.phone,
         birthdate: member.birthdate || null,
@@ -301,15 +301,30 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
         auth_id: authUser?.user?.id ?? null,
         marketing_opt_in: member.marketingOptIn ?? true,
         push_notifications_enabled: member.pushNotificationOptIn ?? true,
+      };
+
+      const insertPayload = {
+        ...basePayload,
         password: member.password || null,
       };
       console.log("[MembersStore] Insert payload:", JSON.stringify(insertPayload));
 
-      const { data: inserted, error } = await supabase
+      let { data: inserted, error } = await supabase
         .from("members")
         .insert(insertPayload)
         .select()
         .single();
+
+      if (error && error.message.includes("schema cache")) {
+        console.warn("[MembersStore] Password column not in schema cache, retrying without password");
+        const retry = await supabase
+          .from("members")
+          .insert(basePayload)
+          .select()
+          .single();
+        inserted = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error("[MembersStore] Insert error:", error.message, "code:", error.code, "details:", error.details, "hint:", error.hint);
