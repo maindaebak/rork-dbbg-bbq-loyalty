@@ -275,11 +275,15 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
     mutationFn: async (member: Omit<StoredMember, "points" | "pointsHistory">) => {
       console.log("[MembersStore] Registering member in Supabase:", member.fullName);
 
-      const { data: existing } = await supabase
+      const { data: existing, error: selectError } = await supabase
         .from("members")
         .select("*")
         .eq("phone", member.phone)
         .maybeSingle();
+
+      if (selectError) {
+        console.error("[MembersStore] Select existing member error:", selectError.message, selectError.code, selectError.details);
+      }
 
       if (existing) {
         console.log("[MembersStore] Member already exists with phone", member.phone);
@@ -287,31 +291,39 @@ export const [MembersStoreProvider, useMembersStore] = createContextHook(() => {
       }
 
       const { data: authUser } = await supabase.auth.getUser();
+      console.log("[MembersStore] Auth user for insert:", authUser?.user?.id ?? "none");
+
+      const insertPayload = {
+        full_name: member.fullName,
+        phone: member.phone,
+        birthdate: member.birthdate || null,
+        birth_year: member.birthYear || null,
+        auth_id: authUser?.user?.id ?? null,
+        marketing_opt_in: member.marketingOptIn ?? false,
+        password: member.password || null,
+      };
+      console.log("[MembersStore] Insert payload:", JSON.stringify(insertPayload));
 
       const { data: inserted, error } = await supabase
         .from("members")
-        .insert({
-          full_name: member.fullName,
-          phone: member.phone,
-          birthdate: member.birthdate || null,
-          birth_year: member.birthYear || null,
-          auth_id: authUser?.user?.id ?? null,
-          marketing_opt_in: member.marketingOptIn ?? false,
-          password: member.password || null,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
       if (error) {
-        console.error("[MembersStore] Insert error:", error.message);
+        console.error("[MembersStore] Insert error:", error.message, "code:", error.code, "details:", error.details, "hint:", error.hint);
         throw new Error(error.message);
       }
 
-      console.log("[MembersStore] Registered member:", inserted.id);
+      console.log("[MembersStore] Registered member successfully:", inserted.id);
       return dbMemberToStored(inserted as DbMember, []);
     },
     onSuccess: () => {
+      console.log("[MembersStore] Register mutation succeeded, invalidating queries");
       void queryClient.invalidateQueries({ queryKey: ["members-store"] });
+    },
+    onError: (error) => {
+      console.error("[MembersStore] Register mutation FAILED:", error.message);
     },
   });
 
