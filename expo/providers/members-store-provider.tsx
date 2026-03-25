@@ -100,18 +100,37 @@ function dbMemberToStored(member: DbMember, history: DbPointsEntry[]): StoredMem
   };
 }
 
+async function retryOnSchemaCache<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+      if (message.includes('schema cache') && attempt < maxRetries - 1) {
+        console.warn(`[MembersStore] Schema cache error, retrying (${attempt + 1}/${maxRetries})...`);
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 async function fetchMembersFromSupabase(): Promise<StoredMember[]> {
   try {
     console.log("[MembersStore] Fetching members from Supabase...");
-    const { data: dbMembers, error: membersError } = await supabase
-      .from("members")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (membersError) {
-      console.error("[MembersStore] Supabase members error:", membersError.message);
-      throw membersError;
-    }
+    const dbMembers = await retryOnSchemaCache(async () => {
+      const { data, error } = await supabase
+        .from("members")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("[MembersStore] Supabase members error:", error.message);
+        throw error;
+      }
+      return data;
+    });
 
     if (!dbMembers || dbMembers.length === 0) {
       console.log("[MembersStore] No members found in Supabase");
@@ -157,14 +176,16 @@ async function fetchMembersFromSupabase(): Promise<StoredMember[]> {
 async function fetchMembershipRedemptions(): Promise<MembershipRedemption[]> {
   try {
     console.log("[MembersStore] Fetching membership redemptions from Supabase...");
-    const { data, error } = await supabase
-      .from("membership_redemptions")
-      .select("*");
-
-    if (error) {
-      console.error("[MembersStore] Supabase membership_redemptions error:", error.message);
-      throw error;
-    }
+    const data = await retryOnSchemaCache(async () => {
+      const { data: result, error } = await supabase
+        .from("membership_redemptions")
+        .select("*");
+      if (error) {
+        console.error("[MembersStore] Supabase membership_redemptions error:", error.message);
+        throw error;
+      }
+      return result;
+    });
 
     return (data ?? []).map((r: { member_id: string; reward_id: string; redeemed_at: string }) => ({
       memberId: r.member_id,
@@ -195,16 +216,18 @@ async function fetchPerkUsages(): Promise<PerkUsage[]> {
     const startOfDay = `${todayStr}T00:00:00.000Z`;
     const endOfDay = `${todayStr}T23:59:59.999Z`;
 
-    const { data, error } = await supabase
-      .from("perk_usages")
-      .select("*")
-      .gte("used_at", startOfDay)
-      .lte("used_at", endOfDay);
-
-    if (error) {
-      console.error("[MembersStore] Supabase perk_usages error:", error.message);
-      throw error;
-    }
+    const data = await retryOnSchemaCache(async () => {
+      const { data: result, error } = await supabase
+        .from("perk_usages")
+        .select("*")
+        .gte("used_at", startOfDay)
+        .lte("used_at", endOfDay);
+      if (error) {
+        console.error("[MembersStore] Supabase perk_usages error:", error.message);
+        throw error;
+      }
+      return result;
+    });
 
     return (data ?? []).map((r: { member_id: string; perk_id: string; used_at: string }) => ({
       memberId: r.member_id,

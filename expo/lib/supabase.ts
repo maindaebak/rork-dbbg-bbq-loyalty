@@ -45,6 +45,9 @@ function getSupabaseClient(): SupabaseClient {
       persistSession: true,
       detectSessionInUrl: false,
     },
+    db: {
+      schema: 'public',
+    },
   });
 
   return _supabase;
